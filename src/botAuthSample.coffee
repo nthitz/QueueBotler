@@ -1,0 +1,6 @@
+AUTH   = 'XXXXXX';
+USERID = 'XXXXXX';
+ROOMID = 'XXXXXX';
+exports.AUTH = AUTH
+exports.USERID = USERID
+exports.ROOMID = ROOMID
