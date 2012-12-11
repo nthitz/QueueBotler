@@ -1,14 +1,15 @@
 http = require 'http'
 $ = require 'jquery'
-
+querystring = require 'querystring'
 Bot    = require('ttapi');
 auth = require './botAuth'
-
-console.log auth
+profiles = require './UserProfiles'
+DEBUG = true
+host = 'www.sosimpull.com'
 requestQueue = (callback) ->
 	console.log 'requesting queue'
 	queueOptions = {
-		host: 'www.sosimpull.com'
+		host: host
 		path: '/line.php'
 	}
 	cb = (response) ->
@@ -42,13 +43,17 @@ sendQueueInChat = (queue) ->
 	lineNum = 0
 	for index of queue
 		person = queue[index]
-		if person.status isnt 'Here'
-			continue
 		lineNum++
 		pMsg = numberToEmoji(lineNum)
-		pMsg += ' ' + person.name
+		pMsg += ' ' + person.name + ' ('+person.time
+		if person.status isnt 'Here'
+			pMsg += ', ' + person.status
+		pMsg += ')'
 		msgs.push pMsg
-	sendChat(msgs)
+	if DEBUG
+		console.log msgs
+	else
+		sendChat(msgs)
 chatToSend = []
 msgToSend = ''
 sendChat = (msgs) ->
@@ -81,23 +86,64 @@ numberToEmoji = (num) ->
 		else return num	+ ":"
 
 
-# requestQueue(sendQueueInChat)
-
 bot = new Bot(auth.AUTH, auth.USERID);
-bot.on 'ready',       (data) -> 
-	bot.roomRegister(auth.ROOMID)
-#bot.on 'roomChanged',  (data) ->
-#	console.log('The bot has changed room.', data)
+profiles.init(bot)
+bot.on 'ready', (data) -> 
+	bot.roomRegister auth.ROOMID	
+addToQueueIfNotInQueue = (queue, user) ->
+	username = user.name
+	for person in queue
+		if person.name is username
+			console.log 'user already in queue, maybe some chat response here?'
+			return false
+	#addToQueue(user)
+addToQueue = (user) -> 
+	console.log 'add to queue'
+	addData = querystring.stringify {
+      whichLine: 0 #mashup.fm lime
+      lineName: user.name
+      linePIN: 'asd'
+      Add: 'Add'
+    }
+    queueOptions = {
+		host: host
+		path: '/lineProcess.php'
+		method: 'POST'
+		headers: 
+	        'Content-Type': 'application/x-www-form-urlencoded'
+	        'Content-Length': addData.length
+    
+	}
+	console.log queueOptions
+	cb = (response) ->
+		response.setEncoding('utf8');
 
-bot.on 'speak',        (data) ->
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			console.log 'added to queue ? '
+			console.log str
+	req = http.request queueOptions, cb
+	console.log addData
+	req.write(addData)
+	req.end()
+parsePM = (pm, user) ->
+	if pm.text is 'queuebot'
+		requestQueue(sendQueueInChat)
+	if pm.text is 'add'
+		requestQueue (queue) ->
+			addToQueueIfNotInQueue(queue, user)
+
+	console.log pm
+	#console.log user
+###
+bot.on 'speak', (data) ->
 	if data.text.toLowerCase().indexOf('queuebot') isnt -1
 		console.log 'requesting queue'
 		requestQueue(sendQueueInChat)
+###
 bot.on 'pmmed', (data) ->
-	requestQueue(sendQueueInChat)
-
-#bot.on 'update_votes', (data) ->
-#	console.log('Someone has voted',  data)
-#bot.on 'registered',   (data) ->
-#	console.log('Someone registered', data)
+	profiles.getProfile data.senderid, (profile) ->
+		parsePM data, profile
 
