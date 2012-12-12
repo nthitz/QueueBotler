@@ -6,6 +6,9 @@ auth = require './botAuth'
 profiles = require './UserProfiles'
 DEBUG = true
 host = 'www.sosimpull.com'
+latestQueue = null
+queueLineID = 0 # it's 0 for mashup.fm 
+pins = {} # meh, poor 
 requestQueue = (callback) ->
 	console.log 'requesting queue'
 	queueOptions = {
@@ -31,15 +34,16 @@ processQueueHTML = (html, callback) ->
 		name = $(tds[1]).text()
 		time = $(tds[2]).text()
 		status = $(tds[6]).find('select').val()
-		item = {name: name, time: time, status: status}
+		queueID = $(tds[6]).find('select').attr('id').substr(7)
+		item = {name: name, time: time, status: status, queueID: queueID}
 		curQ.push(item)
+	latestQueue = curQ
 	callback(curQ)
 sendQueueInChat = (queue) ->
 	console.log 'sendq'
 	console.log queue
 	msgs = []
 	msgs.push 'Current Queue from sosimpull.com/mashupfm-line/ :'
-#	bot.speak(msg)
 	lineNum = 0
 	for index of queue
 		person = queue[index]
@@ -96,13 +100,21 @@ addToQueueIfNotInQueue = (queue, user) ->
 		if person.name is username
 			console.log 'user already in queue, maybe some chat response here?'
 			return false
-	#addToQueue(user)
+	addToQueue(user)
 addToQueue = (user) -> 
 	console.log 'add to queue'
+	pin = Math.floor(Math.random() * 1000);
+	strPin = "" + pin
+	if pin < 100
+		strPin = Math.floor(Math.random()*10) + strPin
+	if pin < 10
+		strPin = Math.floor(Math.random()*10) + strPin
+	pins[user.name] = strPin
+	
 	addData = querystring.stringify {
-      whichLine: 0 #mashup.fm lime
+      whichLine: queueLineID #mashup.fm lime
       lineName: user.name
-      linePIN: 'asd'
+      linePIN: strPin
       Add: 'Add'
     }
     queueOptions = {
@@ -114,7 +126,6 @@ addToQueue = (user) ->
 	        'Content-Length': addData.length
     
 	}
-	console.log queueOptions
 	cb = (response) ->
 		response.setEncoding('utf8');
 
@@ -123,18 +134,47 @@ addToQueue = (user) ->
 			str += data
 		response.on 'end', ->
 			console.log 'added to queue ? '
-			console.log str
+			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
+			bot.pm msg, user.userid
 	req = http.request queueOptions, cb
 	console.log addData
 	req.write(addData)
 	req.end()
+removeFromQueue = (queue, user) ->
+	console.log user
+	userID = user.userid
+	name = user.name
+
+	for queuePerson in queue
+		if queuePerson.name is name
+			removeQueuedPerson(queuePerson, user)
+			break
+removeQueuedPerson = (queuePerson, user) ->
+	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
+		#"&linePIN=" + linePIN + "&whichLine=0
+	queueOptions = {
+		host: host
+		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name] +
+			"&whichLine="+queueLineID
+	}
+	cb = (response) ->
+		response.setEncoding('utf8');
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			console.log 'removed from queue ? '
+			console.log str
+			msg = "You've been removed from the queue"
+			bot.pm msg, user.userid
+	http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
 	if pm.text is 'queuebot'
 		requestQueue(sendQueueInChat)
-	if pm.text is 'add'
-		requestQueue (queue) ->
-			addToQueueIfNotInQueue(queue, user)
-
+	if pm.text is 'add' or pm.text is 'a'
+		requestQueue (queue) -> addToQueueIfNotInQueue(queue, user)
+	if pm.text is 'rm' or pm.text is 'r' or pm.text is 'remove'
+		requestQueue (queue) -> removeFromQueue(queue,user)
 	console.log pm
 	#console.log user
 ###
