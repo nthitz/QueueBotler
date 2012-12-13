@@ -39,9 +39,7 @@ processQueueHTML = (html, callback) ->
 		curQ.push(item)
 	latestQueue = curQ
 	callback(curQ)
-sendQueueInChat = (queue) ->
-	console.log 'sendq'
-	console.log queue
+getQueueMessages = (queue) ->
 	msgs = []
 	msgs.push 'Current Queue from sosimpull.com/mashupfm-line/ :'
 	lineNum = 0
@@ -54,18 +52,39 @@ sendQueueInChat = (queue) ->
 			pMsg += ', ' + person.status
 		pMsg += ')'
 		msgs.push pMsg
+	return msgs
+sendQueueInPM = (queue, user) ->
+	console.log 'send queue in pm'
+	msgs = getQueueMessages(queue)
+	queuePMs(msgs, user)
+pmsToSend = []
+queuePMs = (msgs, user) ->
+	numInQueue = pmsToSend.length
+	for msg in msgs
+		pmsToSend.push({msg: msg, user:user})
+	if numInQueue is 0
+		sendPMInQueue()
+sendPMInQueue = ->
+	if pmsToSend.length is 0
+		return
+	pmToSend = pmsToSend.shift()
+	setTimeout ->
+		bot.pm pmToSend.msg, pmToSend.user.userid, sendPMInQueue
+sendQueueInChat = (queue) ->
+	console.log 'sendq in chat'
+	console.log queue
+	msgs = getQueueMessages(queue)
 	if DEBUG
 		console.log msgs
 	else
 		sendChat(msgs)
 chatToSend = []
-msgToSend = ''
 sendChat = (msgs) ->
-	if chatToSend.length isnt 0
-		console.log 'pending chat messages, not implemented'
-		return
-	chatToSend = msgs
-	sendChatMessage()
+	numInQueue = chatToSend.length
+	for msg in msgs
+		chatToSend.push(msg)
+	if numInQueue is 0
+		sendChatMessage()
 sendChatMessage = ->
 	if chatToSend.length is 0
 		return
@@ -93,12 +112,14 @@ numberToEmoji = (num) ->
 bot = new Bot(auth.AUTH, auth.USERID);
 profiles.init(bot)
 bot.on 'ready', (data) -> 
-	bot.roomRegister auth.ROOMID	
+	bot.roomRegister auth.ROOMID
+
 addToQueueIfNotInQueue = (queue, user) ->
 	username = user.name
 	for person in queue
 		if person.name is username
 			console.log 'user already in queue, maybe some chat response here?'
+			bot.pm "You are already in the queue.", user.userid
 			return false
 	addToQueue(user)
 addToQueue = (user) -> 
@@ -141,17 +162,20 @@ addToQueue = (user) ->
 	req.write(addData)
 	req.end()
 removeFromQueue = (queue, user) ->
-	console.log user
 	userID = user.userid
 	name = user.name
 
 	for queuePerson in queue
 		if queuePerson.name is name
 			removeQueuedPerson(queuePerson, user)
-			break
+			return
+	bot.pm 'You are not in the queue. I think.', user.userid
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
+	if typeof pins[user.name] is 'undefined'
+		bot.pm "Sorry, I don't know your PIN.", user.userid
+		return
 	queueOptions = {
 		host: host
 		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name] +
@@ -168,6 +192,38 @@ removeQueuedPerson = (queuePerson, user) ->
 			msg = "You've been removed from the queue"
 			bot.pm msg, user.userid
 	http.request(queueOptions, cb).end()
+checkInIfInList = (queue, user) ->
+	userID = user.userid
+	name = user.name
+	console.log queue
+	for queuePerson in queue
+		if queuePerson.name is name
+			checkIn(queuePerson, user)
+			return
+	bot.pm 'You are not in the queue. I think.', user.userid
+checkIn = (queuePerson, user) ->
+	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
+		#"&linePIN=" + linePIN + "&whichLine=0
+	if typeof pins[user.name] is 'undefined'
+		bot.pm "Sorry, I don't know your PIN.", user.userid
+		return
+	queueOptions = {
+		host: host
+		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name] +
+			"&whichLine="+queueLineID
+	}
+	console.log queueOptions
+	cb = (response) ->
+		response.setEncoding('utf8');
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			console.log 'checked in '
+			console.log str
+			msg = "You've been checked in"
+			bot.pm msg, user.userid
+	http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
 	if pm.text is 'queuebot'
 		requestQueue(sendQueueInChat)
@@ -175,6 +231,10 @@ parsePM = (pm, user) ->
 		requestQueue (queue) -> addToQueueIfNotInQueue(queue, user)
 	if pm.text is 'rm' or pm.text is 'r' or pm.text is 'remove'
 		requestQueue (queue) -> removeFromQueue(queue,user)
+	if pm.text is 'c' or pm.text is 'ci' or pm.text is 'checkin' or pm.text is 'check in'
+		requestQueue (queue) -> checkInIfInList(queue,user)
+	if pm.text is 'q' or pm.text is 'queue'
+		requestQueue (queue) -> sendQueueInPM(queue,user)
 	console.log pm
 	#console.log user
 ###
