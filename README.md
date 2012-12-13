@@ -3,4 +3,11 @@ QueueBotler
 
 Turntable Mashup.FM Queue Bot
 
-Currently just idles in mashup.fm and if requested to will read the queue from sosimpull.com
+Features:
+PM the current queue
+Add you to the queue
+Remove from the queue
+check in to the queue
+
+(remove and check in only work if you 'add'ed with the bot - because of the PIN)
+
