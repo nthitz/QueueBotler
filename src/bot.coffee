@@ -122,6 +122,13 @@ addToQueueIfNotInQueue = (queue, user) ->
 			bot.pm "You are already in the queue.", user.userid
 			return false
 	addToQueue(user)
+savePinInQueue = (queue, pin, queueName) ->
+	for person in queue
+		if person.name is queueName
+			savePin person.queueID, pin, queueName
+			break
+savePin = (lineID, pin, queueName) ->
+	pins[queueName] = {lineID: lineID, pin: pin}
 addToQueue = (user) -> 
 	console.log 'add to queue'
 	pin = Math.floor(Math.random() * 1000);
@@ -130,7 +137,7 @@ addToQueue = (user) ->
 		strPin = Math.floor(Math.random()*10) + strPin
 	if pin < 10
 		strPin = Math.floor(Math.random()*10) + strPin
-	pins[user.name] = strPin
+	#pins[user.name] = strPin
 	
 	addData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
@@ -155,6 +162,7 @@ addToQueue = (user) ->
 			str += data
 		response.on 'end', ->
 			console.log 'added to queue ? '
+			requesttQueue (queue) -> savePinInQueue queue, strPin, user.name
 			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
 			bot.pm msg, user.userid
 	req = http.request queueOptions, cb
@@ -178,7 +186,7 @@ removeQueuedPerson = (queuePerson, user) ->
 		return
 	queueOptions = {
 		host: host
-		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name] +
+		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
 			"&whichLine="+queueLineID
 	}
 	cb = (response) ->
@@ -190,6 +198,7 @@ removeQueuedPerson = (queuePerson, user) ->
 			console.log 'removed from queue ? '
 			console.log str
 			msg = "You've been removed from the queue"
+			delete pins[user.name]
 			bot.pm msg, user.userid
 	http.request(queueOptions, cb).end()
 checkInIfInList = (queue, user) ->
@@ -209,7 +218,7 @@ checkIn = (queuePerson, user) ->
 		return
 	queueOptions = {
 		host: host
-		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name] +
+		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
 			"&whichLine="+queueLineID
 	}
 	console.log queueOptions
@@ -235,6 +244,7 @@ parsePM = (pm, user) ->
 		requestQueue (queue) -> checkInIfInList(queue,user)
 	if pm.text is 'q' or pm.text is 'queue'
 		requestQueue (queue) -> sendQueueInPM(queue,user)
+
 	console.log pm
 	#console.log user
 ###
