@@ -1,0 +1,22 @@
+{
+  "name"        : "QueryBotler",
+  "version"     : "0.0.1",
+  "author"      : "nthitz",
+  "keywords"    : "turntable.fm turntable mashup.fm",
+  "description" : "Interact with turntable.fm queuing system",
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/nthitz/QueueBotler"
+  },
+
+  "dependencies": {
+    "jquery": ">= 0",
+    "ttapi": ">= 0"
+  },
+
+  "engines": {
+    "node": "0.8.x",
+    "npm": "1.1.x"
+  }
+}
