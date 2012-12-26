@@ -4,7 +4,9 @@ querystring = require 'querystring'
 Bot    = require('ttapi');
 auth = require './botAuth'
 profiles = require './UserProfiles'
-DEBUG = true
+PMManager = require './PMManager'
+ChatManager = require './ChatManager'
+DEBUG = false
 host = 'www.sosimpull.com'
 latestQueue = null
 queueLineID = 0 # it's 0 for mashup.fm 
@@ -43,33 +45,36 @@ getQueueMessages = (queue) ->
 	msgs = []
 	msgs.push 'Current Queue from sosimpull.com/mashupfm-line/ :'
 	lineNum = 0
-	for index of queue
-		person = queue[index]
-		lineNum++
-		pMsg = numberToEmoji(lineNum)
-		pMsg += ' ' + person.name + ' ('+person.time
-		if person.status isnt 'Here'
-			pMsg += ', ' + person.status
-		pMsg += ')'
-		msgs.push pMsg
+	if queue.length isnt 0
+		for index of queue
+			person = queue[index]
+			lineNum++
+			pMsg = numberToEmoji(lineNum)
+			pMsg += ' ' + person.name + ' ('+person.time
+			if person.status isnt 'Here'
+				pMsg += ', ' + person.status
+			pMsg += ')'
+			msgs.push pMsg
+	else
+		msgs.push "Empty!"
 	return msgs
 sendQueueInPM = (queue, user) ->
 	console.log 'send queue in pm'
 	msgs = getQueueMessages(queue)
-	queuePMs(msgs, user)
-pmsToSend = []
-queuePMs = (msgs, user) ->
-	numInQueue = pmsToSend.length
-	for msg in msgs
-		pmsToSend.push({msg: msg, user:user})
-	if numInQueue is 0
-		sendPMInQueue()
-sendPMInQueue = ->
-	if pmsToSend.length is 0
-		return
-	pmToSend = pmsToSend.shift()
-	setTimeout ->
-		bot.pm pmToSend.msg, pmToSend.user.userid, sendPMInQueue
+	PMManager.queuePMs(msgs, user)
+# pmsToSend = []
+# queuePMs = (msgs, user) ->
+# 	numInQueue = pmsToSend.length
+# 	for msg in msgs
+# 		pmsToSend.push({msg: msg, user:user})
+# 	if numInQueue is 0
+# 		sendPMInQueue()
+# sendPMInQueue = ->
+# 	if pmsToSend.length is 0
+# 		return
+# 	pmToSend = pmsToSend.shift()
+# 	setTimeout ->
+# 		bot.pm pmToSend.msg, pmToSend.user.userid, sendPMInQueue
 sendQueueInChat = (queue) ->
 	console.log 'sendq in chat'
 	console.log queue
@@ -77,22 +82,8 @@ sendQueueInChat = (queue) ->
 	if DEBUG
 		console.log msgs
 	else
-		sendChat(msgs)
-chatToSend = []
-sendChat = (msgs) ->
-	numInQueue = chatToSend.length
-	for msg in msgs
-		chatToSend.push(msg)
-	if numInQueue is 0
-		sendChatMessage()
-sendChatMessage = ->
-	if chatToSend.length is 0
-		return
-	msgToSend = chatToSend.shift()
-	setTimeout ->
-		console.log 'chat: ' + msgToSend
-		bot.speak msgToSend, sendChatMessage
-	, 50
+		ChatManager.sendChat(msgs)
+
 
 
 numberToEmoji = (num) ->
@@ -111,6 +102,8 @@ numberToEmoji = (num) ->
 
 bot = new Bot(auth.AUTH, auth.USERID);
 profiles.init(bot)
+PMManager.setBot(bot)
+ChatManager.setBot bot
 bot.on 'ready', (data) -> 
 	bot.roomRegister auth.ROOMID
 
@@ -162,7 +155,7 @@ addToQueue = (user) ->
 			str += data
 		response.on 'end', ->
 			console.log 'added to queue ? '
-			requesttQueue (queue) -> savePinInQueue queue, strPin, user.name
+			requestQueue (queue) -> savePinInQueue queue, strPin, user.name
 			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
 			bot.pm msg, user.userid
 	req = http.request queueOptions, cb
