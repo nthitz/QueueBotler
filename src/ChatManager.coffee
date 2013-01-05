@@ -15,6 +15,6 @@ sendChatMessage = ->
 	setTimeout ->
 		console.log 'chat: ' + msgToSend
 		bot.speak msgToSend, sendChatMessage
-	, 50
+	, 100
 exports.setBot = setBot
 exports.sendChat = sendChat

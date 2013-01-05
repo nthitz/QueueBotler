@@ -14,6 +14,6 @@ sendPMInQueue = ->
 	pmToSend = pmsToSend.shift()
 	setTimeout ->
 		bot.pm pmToSend.msg, pmToSend.userid, sendPMInQueue
-	,25
+	,100
 exports.queuePMs = queuePMs
 exports.setBot = setBot
