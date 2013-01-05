@@ -97,10 +97,10 @@ numberToEmoji = (num) ->
 		when 9 then return ":nine:"
 		else return num	+ ":"
 
-if(typeof process.env.AUTH is 'undefined') {
+if typeof process.env.AUTH is 'undefined'
 	console.log 'setup bot environmnet vars first'
 	process.exit()
-}
+
 bot = new Bot(process.env.AUTH, process.env.USERID);
 profiles.init(bot)
 PMManager.setBot(bot)
