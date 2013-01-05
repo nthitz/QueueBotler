@@ -2,7 +2,6 @@ http = require 'http'
 $ = require 'jquery'
 querystring = require 'querystring'
 Bot    = require('ttapi');
-auth = require './botAuth'
 profiles = require './UserProfiles'
 PMManager = require './PMManager'
 ChatManager = require './ChatManager'
@@ -98,13 +97,16 @@ numberToEmoji = (num) ->
 		when 9 then return ":nine:"
 		else return num	+ ":"
 
-
-bot = new Bot(auth.AUTH, auth.USERID);
+if(typeof process.env.AUTH is 'undefined') {
+	console.log 'setup bot environmnet vars first'
+	process.exit()
+}
+bot = new Bot(process.env.AUTH, process.env.USERID);
 profiles.init(bot)
 PMManager.setBot(bot)
 ChatManager.setBot bot
 bot.on 'ready', (data) -> 
-	bot.roomRegister auth.ROOMID
+	bot.roomRegister process.env.ROOMID
 
 addToQueueIfNotInQueue = (queue, user) ->
 	username = user.name
