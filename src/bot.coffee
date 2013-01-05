@@ -61,28 +61,27 @@ getQueueMessages = (queue) ->
 sendQueueInPM = (queue, user) ->
 	console.log 'send queue in pm'
 	msgs = getQueueMessages(queue)
-	PMManager.queuePMs(msgs, user)
-# pmsToSend = []
-# queuePMs = (msgs, user) ->
-# 	numInQueue = pmsToSend.length
-# 	for msg in msgs
-# 		pmsToSend.push({msg: msg, user:user})
-# 	if numInQueue is 0
-# 		sendPMInQueue()
-# sendPMInQueue = ->
-# 	if pmsToSend.length is 0
-# 		return
-# 	pmToSend = pmsToSend.shift()
-# 	setTimeout ->
-# 		bot.pm pmToSend.msg, pmToSend.user.userid, sendPMInQueue
+	PMManager.queuePMs(msgs, user.userid)
+
+sendQueueInChatIfVerified = (user) ->
+	bot.roomInfo(false,(data) ->
+		verified = false
+		if data.room.metadata.moderator_id.indexOf(user.userid) isnt -1
+			verified = true
+		if data.room.metadata.djs.indexOf(user.userid) isnt -1
+			verified = true
+		if user.userid is '4f50f403590ca262030050e7' # dev nthitz
+			verified = true
+		if verified
+			requestQueue (queue) -> sendQueueInChat(queue)
+		else
+			PMManager.queuePMs ["Sorry I can't let you do that."], user.userid
+	)
+
 sendQueueInChat = (queue) ->
-	console.log 'sendq in chat'
-	console.log queue
+
 	msgs = getQueueMessages(queue)
-	if DEBUG
-		console.log msgs
-	else
-		ChatManager.sendChat(msgs)
+	ChatManager.sendChat(msgs)
 
 
 
@@ -112,7 +111,7 @@ addToQueueIfNotInQueue = (queue, user) ->
 	for person in queue
 		if person.name is username
 			console.log 'user already in queue, maybe some chat response here?'
-			bot.pm "You are already in the queue.", user.userid
+			PMManager.queuePMs ["You are already in the queue."], user.userid
 			return false
 	addToQueue(user)
 savePinInQueue = (queue, pin, queueName) ->
@@ -157,7 +156,7 @@ addToQueue = (user) ->
 			console.log 'added to queue ? '
 			requestQueue (queue) -> savePinInQueue queue, strPin, user.name
 			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
-			bot.pm msg, user.userid
+			PMManager.queuePMs [msg], user.userid
 	req = http.request queueOptions, cb
 	console.log addData
 	req.write(addData)
@@ -170,12 +169,12 @@ removeFromQueue = (queue, user) ->
 		if queuePerson.name is name
 			removeQueuedPerson(queuePerson, user)
 			return
-	bot.pm 'You are not in the queue. I think.', user.userid
+	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
 	if typeof pins[user.name] is 'undefined'
-		bot.pm "Sorry, I don't know your PIN.", user.userid
+		PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
 		return
 	queueOptions = {
 		host: host
@@ -192,7 +191,7 @@ removeQueuedPerson = (queuePerson, user) ->
 			console.log str
 			msg = "You've been removed from the queue"
 			delete pins[user.name]
-			bot.pm msg, user.userid
+			PMManager.queuePMs [msg], user.userid
 	http.request(queueOptions, cb).end()
 checkInIfInList = (queue, user) ->
 	userID = user.userid
@@ -202,12 +201,12 @@ checkInIfInList = (queue, user) ->
 		if queuePerson.name is name
 			checkIn(queuePerson, user)
 			return
-	bot.pm 'You are not in the queue. I think.', user.userid
+	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
 checkIn = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
 	if typeof pins[user.name] is 'undefined'
-		bot.pm "Sorry, I don't know your PIN.", user.userid
+		PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
 		return
 	queueOptions = {
 		host: host
@@ -224,28 +223,56 @@ checkIn = (queuePerson, user) ->
 			console.log 'checked in '
 			console.log str
 			msg = "You've been checked in"
-			bot.pm msg, user.userid
+			PMManager.queuePMs [msg], user.userid
 	http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
-	if pm.text is 'queuebot'
-		requestQueue(sendQueueInChat)
-	if pm.text is 'add' or pm.text is 'a'
+	pm.text = pm.text.toLowerCase().trim()
+	if pm.text is 'q chat' or pm.text is 'queue chat'
+		sendQueueInChatIfVerified(user)
+	else if pm.text is 'add' or pm.text is 'a'
 		requestQueue (queue) -> addToQueueIfNotInQueue(queue, user)
-	if pm.text is 'rm' or pm.text is 'r' or pm.text is 'remove'
+	else if pm.text is 'rm' or pm.text is 'r' or pm.text is 'remove'
 		requestQueue (queue) -> removeFromQueue(queue,user)
-	if pm.text is 'c' or pm.text is 'ci' or pm.text is 'checkin' or pm.text is 'check in'
+	else if pm.text is 'c' or pm.text is 'ci' or pm.text is 'checkin' or pm.text is 'check in'
 		requestQueue (queue) -> checkInIfInList(queue,user)
-	if pm.text is 'q' or pm.text is 'queue'
+	else if pm.text is 'q' or pm.text is 'queue'
 		requestQueue (queue) -> sendQueueInPM(queue,user)
-
+	else if  pm.text is 'help'
+		pmHelp("help",user.userid)
+	else if pm.text is 'help add'
+		pmHelp("add",user.userid)
+	else if pm.text is 'help remove'
+		pmHelp('remove', user.userid)
+	else if pm.text is 'help checkin'
+		pmHelp 'checkin', user.userid
+	else if pm.text is 'help queue'
+		pmHelp 'queue', user.userid
 	console.log pm
 	#console.log user
-###
+pmHelp = (msg, userid) ->
+	msgs = []
+	if msg is "help"
+		msgs = ["Hello, I'm QueueBotler. Here are some commands, :",
+			"add, remove, checkin, queue",
+			"reply \"help [command]\" for more info on any command (I only work through PMs!)"]
+	else if msg is 'add'
+		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
+	else if msg is "remove"
+		msgs = ["remove: removes you from the sosimpull.com queue","only works if you added with the bot"
+		"aliases: remove, rm, r"]
+	else if msg is "checkin"
+		msgs = ["checkin: checks you in to the sosimpull.com queue", "only works if you added with the bot"
+		,"aliases: checkin, check in, ci, c"]
+	else if msg is "queue"
+		msgs = ["queue: pms you the current queue", "aliases: queue, q",
+		 "if you are a mod or on deck you can append 'chat' to send the queue to the chat ex: \"q chat\""]
+
+	PMManager.queuePMs msgs, userid
 bot.on 'speak', (data) ->
-	if data.text.toLowerCase().indexOf('queuebot') isnt -1
-		console.log 'requesting queue'
-		requestQueue(sendQueueInChat)
-###
+	lower  = data.text.toLowerCase().trim()
+	if lower.match(/^\/?q(ueue)?\+?$/)
+		pmHelp("help", data.userid)
+
 bot.on 'pmmed', (data) ->
 	profiles.getProfile data.senderid, (profile) ->
 		parsePM data, profile
