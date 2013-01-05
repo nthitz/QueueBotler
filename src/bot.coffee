@@ -254,9 +254,7 @@ parsePM = (pm, user) ->
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"
-		msgs = ["Hello, I'm QueueBotler. Here are some commands, :",
-			"add, remove, checkin, queue",
-			"reply \"help [command]\" for more info on any command (I only work through PMs!)"]
+		msgs = ["Hello, I'm QueueBotler. Here are some commands: add, remove, checkin, queue. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
 	else if msg is 'add'
 		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
 	else if msg is "remove"
