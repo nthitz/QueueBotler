@@ -249,6 +249,10 @@ parsePM = (pm, user) ->
 		pmHelp 'checkin', user.userid
 	else if pm.text is 'help queue'
 		pmHelp 'queue', user.userid
+	else if pm.text is 'help about'
+		pmHelp 'about', user.userid
+	else if pm.text is 'about'
+		pmHelp 'about', user.userid
 	else 
 		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
 	console.log pm
@@ -256,7 +260,7 @@ parsePM = (pm, user) ->
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"
-		msgs = ["Hello, I'm QueueBotler. Here are some commands: add, remove, checkin, queue. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
+		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. Here are some commands: add, remove, checkin, queue, about. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
 	else if msg is 'add'
 		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
 	else if msg is "remove"
@@ -267,8 +271,12 @@ pmHelp = (msg, userid) ->
 		,"aliases: checkin, check in, ci, c"]
 	else if msg is "queue"
 		msgs = ["queue: pms you the current queue", "aliases: queue, q",
-		 "if you are a mod or on deck you can append 'chat' to send the queue to the chat ex: \"q chat\""]
-
+		"if you are a mod or on deck you can append 'chat' to send the queue to the chat ex: \"q chat\""]
+	else if msg is 'about'
+		msgs = ["Real line here: http://sosimpull.com/mashupfm-line/", 
+    	"Facebook Group http://www.facebook.com/groups/mashupfm/",
+    	"Rules http://bit.ly/TLBLyC" ,
+    	"Created by @nthitz - nthtiz AT gmail DOT com"]
 	PMManager.queuePMs msgs, userid
 bot.on 'speak', (data) ->
 	lower  = data.text.toLowerCase().trim()
