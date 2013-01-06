@@ -2,6 +2,10 @@ profiles = {}
 bot = null
 init = (_bot) ->
 	bot = _bot
+	bot.on 'update_user',(data) ->
+		console.log 'update_user'
+		console.log data
+		delete profiles[data.userid]
 callbackQueue = []
 useridQueue = []
 getProfile = (userid, callback) ->

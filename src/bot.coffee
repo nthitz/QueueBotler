@@ -109,17 +109,18 @@ bot.on 'ready', (data) ->
 	bot.roomRegister process.env.ROOMID
 
 addToQueueIfNotInQueue = (queue, user) ->
-	username = user.name
+	username = user.name.replace(/'/g, "")
 	for person in queue
 		if person.name is username
 			console.log 'user already in queue, maybe some chat response here?'
 			PMManager.queuePMs ["You are already in the queue."], user.userid
 			return false
 	addToQueue(user)
-savePinInQueue = (queue, pin, queueName) ->
+savePinInQueue = (queue, pin, username) ->
+	queueName = username.replace(/'/g,"")
 	for person in queue
 		if person.name is queueName
-			savePin person.queueID, pin, queueName
+			savePin person.queueID, pin, username
 			break
 savePin = (lineID, pin, queueName) ->
 	pins[queueName] = {lineID: lineID, pin: pin}
@@ -133,9 +134,10 @@ addToQueue = (user) ->
 		strPin = Math.floor(Math.random()*10) + strPin
 	#pins[user.name] = strPin
 	
+	queueName = user.name.replace(/'/g, "")
 	addData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
-      lineName: user.name
+      lineName: queueName
       linePIN: strPin
       Add: 'Add'
     }
@@ -165,7 +167,7 @@ addToQueue = (user) ->
 	req.end()
 removeFromQueue = (queue, user) ->
 	userID = user.userid
-	name = user.name
+	name = user.name.replace(/'/, "")
 
 	for queuePerson in queue
 		if queuePerson.name is name
@@ -197,7 +199,7 @@ removeQueuedPerson = (queuePerson, user) ->
 	http.request(queueOptions, cb).end()
 checkInIfInList = (queue, user) ->
 	userID = user.userid
-	name = user.name
+	name = user.name.replace(/'/g,"")
 	console.log queue
 	for queuePerson in queue
 		if queuePerson.name is name
