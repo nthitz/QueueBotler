@@ -249,6 +249,8 @@ parsePM = (pm, user) ->
 		pmHelp 'checkin', user.userid
 	else if pm.text is 'help queue'
 		pmHelp 'queue', user.userid
+	else 
+		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
 	console.log pm
 	#console.log user
 pmHelp = (msg, userid) ->
