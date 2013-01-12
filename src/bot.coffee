@@ -10,8 +10,9 @@ host = 'www.sosimpull.com'
 latestQueue = null
 queueLineID = 0 # it's 0 for mashup.fm 
 pins = {} # meh, poor 
+adminIDs = ["4f50f403590ca262030050e7"]
+devMode = true
 requestQueue = (callback) ->
-	console.log 'requesting queue'
 	queueOptions = {
 		host: host
 		path: '/line.php'
@@ -26,7 +27,6 @@ requestQueue = (callback) ->
 	req.end()
 
 processQueueHTML = (html, callback) ->
-	console.log 'queue html receieved'
 	$h = $(html)
 	trs = $h.find('tbody').find('tr')
 	curQ = []
@@ -42,7 +42,7 @@ processQueueHTML = (html, callback) ->
 	callback(curQ)
 getQueueMessages = (queue) ->
 	msgs = []
-	msgs.push 'Current Queue from sosimpull.com/mashupfm-line/ :'
+	msgs.push 'Current Queue from http://sosimpull.com/mashupfm-line/'
 	lineNum = 0
 	if queue.length isnt 0
 		for index of queue
@@ -58,7 +58,6 @@ getQueueMessages = (queue) ->
 		msgs.push "Empty!"
 	return msgs
 sendQueueInPM = (queue, user) ->
-	console.log 'send queue in pm'
 	msgs = getQueueMessages(queue)
 	PMManager.queuePMs(msgs, user.userid)
 
@@ -69,7 +68,7 @@ sendQueueInChatIfVerified = (user) ->
 			verified = true
 		if data.room.metadata.djs.indexOf(user.userid) isnt -1
 			verified = true
-		if user.userid is '4f50f403590ca262030050e7' # dev nthitz
+		if adminIDs.indexOf(user.userid) isnt - 1 # dev nthitz
 			verified = true
 		if verified
 			requestQueue (queue) -> sendQueueInChat(queue)
@@ -112,7 +111,6 @@ addToQueueIfNotInQueue = (queue, user) ->
 	username = user.name.replace(/'/g, "")
 	for person in queue
 		if person.name is username
-			console.log 'user already in queue, maybe some chat response here?'
 			PMManager.queuePMs ["You are already in the queue."], user.userid
 			return false
 	addToQueue(user)
@@ -125,7 +123,6 @@ savePinInQueue = (queue, pin, username) ->
 savePin = (lineID, pin, queueName) ->
 	pins[queueName] = {lineID: lineID, pin: pin}
 addToQueue = (user) -> 
-	console.log 'add to queue'
 	pin = Math.floor(Math.random() * 1000);
 	strPin = "" + pin
 	if pin < 100
@@ -157,7 +154,6 @@ addToQueue = (user) ->
 		response.on 'data', (data) ->
 			str += data
 		response.on 'end', ->
-			console.log 'added to queue ? '
 			requestQueue (queue) -> savePinInQueue queue, strPin, user.name
 			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
 			PMManager.queuePMs [msg], user.userid
@@ -191,8 +187,6 @@ removeQueuedPerson = (queuePerson, user) ->
 		response.on 'data', (data) ->
 			str += data
 		response.on 'end', ->
-			console.log 'removed from queue ? '
-			console.log str
 			msg = "You've been removed from the queue"
 			delete pins[user.name]
 			PMManager.queuePMs [msg], user.userid
@@ -231,6 +225,10 @@ checkIn = (queuePerson, user) ->
 	http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
 	pm.text = pm.text.toLowerCase().trim()
+	if devMode
+		if adminIDs.indexOf(user.userid) is -1
+			PMManager.queuePMs ["I'm currently offline while @nthitz rewires my circuits."], user.userid
+			return
 	if pm.text is 'q chat' or pm.text is 'queue chat'
 		sendQueueInChatIfVerified(user)
 	else if pm.text is 'add' or pm.text is 'a'
@@ -257,6 +255,7 @@ parsePM = (pm, user) ->
 		pmHelp 'about', user.userid
 	else 
 		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
+	console.log user
 	console.log pm
 	#console.log user
 pmHelp = (msg, userid) ->
