@@ -181,6 +181,7 @@ removeQueuedPerson = (queuePerson, user) ->
 		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
 			"&whichLine="+queueLineID
 	}
+	console.log queueOptions.path
 	cb = (response) ->
 		response.setEncoding('utf8');
 		str = ''
@@ -191,10 +192,41 @@ removeQueuedPerson = (queuePerson, user) ->
 			delete pins[user.name]
 			PMManager.queuePMs [msg], user.userid
 	http.request(queueOptions, cb).end()
+updateStatusIfInQueue = (queue, user, status) ->
+	userID = user.userID
+	name = user.name.replace(/'/g,"")
+	for queuePerson in queue
+		if queuePerson.name is name
+			updateStatus(queuePerson, user, status)
+			return
+	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
+updateStatus = (queuePerson, user, status) ->
+	oldStatus = status.toLowerCase()
+	if oldStatus is 'bathroom'
+		oldStatus = 'restroom'
+	status = oldStatus.charAt(0).toUpperCase() + oldStatus.slice(1);
+	if typeof pins[user.name] is 'undefined'
+		PMManager.queuePMs ['Sorry, I don\'t know your PIN.'], user.userid
+		return
+	reqOpts = {
+		host: host
+		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID +
+			'&linePIN=' + pins[user.name]['pin'] +
+			'&whichLine=' + queueLineID + '&lineStatus=' + status
+	}
+	console.log reqOpts.path
+	cb = (response) ->
+		response.setEncoding('utf8');
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			msg = "Your status has been updated to: " + status
+			PMManager.queuePMs [msg], user.userid
+	http.request(reqOpts, cb).end()
 checkInIfInList = (queue, user) ->
 	userID = user.userid
 	name = user.name.replace(/'/g,"")
-	console.log queue
 	for queuePerson in queue
 		if queuePerson.name is name
 			checkIn(queuePerson, user)
@@ -211,15 +243,13 @@ checkIn = (queuePerson, user) ->
 		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
 			"&whichLine="+queueLineID
 	}
-	console.log queueOptions
+	console.log queueOptions.path
 	cb = (response) ->
 		response.setEncoding('utf8');
 		str = ''
 		response.on 'data', (data) ->
 			str += data
 		response.on 'end', ->
-			console.log 'checked in '
-			console.log str
 			msg = "You've been checked in"
 			PMManager.queuePMs [msg], user.userid
 	http.request(queueOptions, cb).end()
@@ -227,7 +257,7 @@ parsePM = (pm, user) ->
 	pm.text = pm.text.toLowerCase().trim()
 	if devMode
 		if adminIDs.indexOf(user.userid) is -1
-			PMManager.queuePMs ["I'm currently offline while @nthitz rewires my circuits."], user.userid
+			PMManager.queuePMs ["I'm currently offline while @nthitz rewires my circuits. Please goto http://sosimpull.com/mashupfm-line/ to join the queue!"], user.userid
 			return
 	if pm.text is 'q chat' or pm.text is 'queue chat'
 		sendQueueInChatIfVerified(user)
@@ -239,8 +269,13 @@ parsePM = (pm, user) ->
 		requestQueue (queue) -> checkInIfInList(queue,user)
 	else if pm.text is 'q' or pm.text is 'queue'
 		requestQueue (queue) -> sendQueueInPM(queue,user)
+	else if pm.text is 'lunch' or pm.text is 'meeting' or pm.text is 'restroom' or pm.text is 'bathroom' or pm.text is 'here'
+		 requestQueue (queue) -> updateStatusIfInQueue(queue, user, pm.text)
+	#help bullshit below
 	else if  pm.text is 'help'
 		pmHelp("help",user.userid)
+	else if pm.text is 'about'
+		pmHelp 'about', user.userid
 	else if pm.text is 'help add'
 		pmHelp("add",user.userid)
 	else if pm.text is 'help remove'
@@ -251,12 +286,9 @@ parsePM = (pm, user) ->
 		pmHelp 'queue', user.userid
 	else if pm.text is 'help about'
 		pmHelp 'about', user.userid
-	else if pm.text is 'about'
-		pmHelp 'about', user.userid
 	else 
 		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
-	console.log user
-	console.log pm
+	console.log "pm: " + user.name + ": " + pm.text
 	#console.log user
 pmHelp = (msg, userid) ->
 	msgs = []
