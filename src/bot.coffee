@@ -11,7 +11,7 @@ latestQueue = null
 queueLineID = 0 # it's 0 for mashup.fm 
 pins = {} # meh, poor 
 adminIDs = ["4f50f403590ca262030050e7"]
-devMode = true
+devMode = false
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
