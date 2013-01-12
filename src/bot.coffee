@@ -281,7 +281,7 @@ pmHelp = (msg, userid) ->
 	PMManager.queuePMs msgs, userid
 bot.on 'speak', (data) ->
 	lower  = data.text.toLowerCase().trim()
-	if lower.match(/^\/?q(ueue)?\+?$/)
+	if lower.match(/^\/?\+?q(ueue)?\+?$/)
 		pmHelp("help", data.userid)
 
 bot.on 'pmmed', (data) ->
