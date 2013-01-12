@@ -272,10 +272,13 @@ parsePM = (pm, user) ->
 	else if pm.text is 'lunch' or pm.text is 'meeting' or pm.text is 'restroom' or pm.text is 'bathroom' or pm.text is 'here'
 		 requestQueue (queue) -> updateStatusIfInQueue(queue, user, pm.text)
 	#help bullshit below
+
 	else if  pm.text is 'help'
 		pmHelp("help",user.userid)
 	else if pm.text is 'about'
 		pmHelp 'about', user.userid
+	else if pm.text is 'status' or pm.text is 'help status'
+		pmHelp 'status', user.userid
 	else if pm.text is 'help add'
 		pmHelp("add",user.userid)
 	else if pm.text is 'help remove'
@@ -293,7 +296,7 @@ parsePM = (pm, user) ->
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"
-		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. Here are some commands: add, remove, checkin, queue, about. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
+		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. Here are some commands: add, remove, checkin, queue, about, status. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
 	else if msg is 'add'
 		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
 	else if msg is "remove"
@@ -310,6 +313,8 @@ pmHelp = (msg, userid) ->
     	"Facebook Group http://www.facebook.com/groups/mashupfm/",
     	"Rules http://bit.ly/TLBLyC" ,
     	"Created by @nthitz - nthtiz AT gmail DOT com"]
+	else if msg is 'status'
+    	msgs = ["To change your status, pm me one of the following: lunch, meeting, restroom or here"]
 	PMManager.queuePMs msgs, userid
 bot.on 'speak', (data) ->
 	lower  = data.text.toLowerCase().trim()
