@@ -17,6 +17,7 @@ adminIDs = ["4f50f403590ca262030050e7"]
 devMode = false
 bot = null
 redisClient = null
+chatModeOnFor = []
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
@@ -252,12 +253,18 @@ checkIn = (queuePerson, user) ->
 				PMManager.queuePMs [msg], user.userid
 		http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
+	originalText = pm.text
 	pm.text = pm.text.toLowerCase().trim()
 	if devMode
 		if adminIDs.indexOf(user.userid) is -1
 			PMManager.queuePMs ["I'm currently offline while @nthitz rewires my circuits. Please goto http://sosimpull.com/mashupfm-line/ to join the queue!"], user.userid
 			return
-	if pm.text is 'q chat' or pm.text is 'queue chat'
+	if pm.text is '=chatmodeoff'
+		delete chatModeOnFor[user.userid]
+		PMManager.queuePMs [":("], user.userid
+	else if typeof chatModeOnFor[user.userid] isnt 'undefined'
+		ChatManager.sendChat [originalText]
+	else if pm.text is 'q chat' or pm.text is 'queue chat'
 		sendQueueInChatIfVerified(user)
 	else if pm.text is 'add' or pm.text is 'a'
 		requestQueue (queue) -> addToQueueIfNotInQueue(queue, user)
@@ -269,6 +276,12 @@ parsePM = (pm, user) ->
 		requestQueue (queue) -> sendQueueInPM(queue,user)
 	else if pm.text is 'lunch' or pm.text is 'meeting' or pm.text is 'restroom' or pm.text is 'bathroom' or pm.text is 'here'
 		 requestQueue (queue) -> updateStatusIfInQueue(queue, user, pm.text)
+	
+	else if pm.text is '=chatmodeon'
+		if adminIDs.indexOf user.userid isnt -1
+			chatModeOnFor[user.userid] = true
+			PMManager.queuePMs [":)"], user.userid
+
 	#help bullshit below
 
 	else if  pm.text is 'help'
