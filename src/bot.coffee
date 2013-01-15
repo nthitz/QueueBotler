@@ -54,8 +54,10 @@ getQueueMessages = (queue) ->
 		for index of queue
 			person = queue[index]
 			lineNum++
-			pMsg = numberToEmoji(lineNum)
-			pMsg += ' ' + person.name + ' ('+person.time
+			pMsg = numberToEmoji(lineNum) + ' '
+			pMsg += if person.name.charAt(0) is '@' then '' else '@' 
+			pMsg += person.name
+			pMsg += ' ('+person.time
 			if person.status isnt 'Here'
 				pMsg += ', ' + person.status
 			pMsg += ')'
