@@ -68,7 +68,7 @@ getQueueMessages = (queue) ->
 sendQueueInPM = (queue, user) ->
 	msgs = getQueueMessages(queue)
 	PMManager.queuePMs(msgs, user.userid)
-
+# check if the user is a mod, on deck, or a QB admin
 sendQueueInChatIfVerified = (user) ->
 	bot.roomInfo(false,(data) ->
 		verified = false
