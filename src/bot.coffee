@@ -1,17 +1,22 @@
 http = require 'http'
 $ = require 'jquery'
 querystring = require 'querystring'
-Bot    = require('ttapi');
+TTAPI    = require('ttapi');
 profiles = require './UserProfiles'
 PMManager = require './PMManager'
 ChatManager = require './ChatManager'
+PinManager = require './PinManager'
+util = require 'util'
+redis = require 'redis'
 DEBUG = false
 host = 'www.sosimpull.com'
 latestQueue = null
 queueLineID = 0 # it's 0 for mashup.fm 
-pins = {} # meh, poor 
+#pins = {} # meh, poor, hey using redis now, way better!
 adminIDs = ["4f50f403590ca262030050e7"]
 devMode = false
+bot = null
+redisClient = null
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
@@ -95,33 +100,24 @@ numberToEmoji = (num) ->
 		when 8 then return ":eight:"
 		when 9 then return ":nine:"
 		else return num	+ ":"
-
-if typeof process.env.AUTH is 'undefined'
-	console.log 'setup bot environmnet vars first'
-	process.exit()
-
-bot = new Bot(process.env.AUTH, process.env.USERID);
-profiles.init(bot)
-PMManager.setBot(bot)
-ChatManager.setBot bot
-bot.on 'ready', (data) -> 
-	bot.roomRegister process.env.ROOMID
-
+makeNameQueueSafe = (name) ->
+	return name.replace(/'/g, "")
 addToQueueIfNotInQueue = (queue, user) ->
-	username = user.name.replace(/'/g, "")
+	username = makeNameQueueSafe(user.name)
 	for person in queue
 		if person.name is username
 			PMManager.queuePMs ["You are already in the queue."], user.userid
 			return false
 	addToQueue(user)
-savePinInQueue = (queue, pin, username) ->
-	queueName = username.replace(/'/g,"")
+savePinInQueue = (queue, pin, user) ->
+	queueName = makeNameQueueSafe(user.name)
 	for person in queue
 		if person.name is queueName
-			savePin person.queueID, pin, username
+			savePin person.queueID, pin, user.userid
 			break
-savePin = (lineID, pin, queueName) ->
-	pins[queueName] = {lineID: lineID, pin: pin}
+savePin = (lineID, pin, userid) ->
+	pinO = {lineID: lineID, pin: pin}
+	PinManager.set(userid, pinO)
 addToQueue = (user) -> 
 	pin = Math.floor(Math.random() * 1000);
 	strPin = "" + pin
@@ -129,9 +125,8 @@ addToQueue = (user) ->
 		strPin = Math.floor(Math.random()*10) + strPin
 	if pin < 10
 		strPin = Math.floor(Math.random()*10) + strPin
-	#pins[user.name] = strPin
 	
-	queueName = user.name.replace(/'/g, "")
+	queueName = makeNameQueueSafe(user.name)
 	addData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
       lineName: queueName
@@ -154,7 +149,7 @@ addToQueue = (user) ->
 		response.on 'data', (data) ->
 			str += data
 		response.on 'end', ->
-			requestQueue (queue) -> savePinInQueue queue, strPin, user.name
+			requestQueue (queue) -> savePinInQueue queue, strPin, user
 			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
 			PMManager.queuePMs [msg], user.userid
 	req = http.request queueOptions, cb
@@ -163,7 +158,7 @@ addToQueue = (user) ->
 	req.end()
 removeFromQueue = (queue, user) ->
 	userID = user.userid
-	name = user.name.replace(/'/, "")
+	name = makeNameQueueSafe(user.name)
 
 	for queuePerson in queue
 		if queuePerson.name is name
@@ -173,28 +168,29 @@ removeFromQueue = (queue, user) ->
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
-	if typeof pins[user.name] is 'undefined'
-		PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
-		return
-	queueOptions = {
-		host: host
-		path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
-			"&whichLine="+queueLineID
-	}
-	console.log queueOptions.path
-	cb = (response) ->
-		response.setEncoding('utf8');
-		str = ''
-		response.on 'data', (data) ->
-			str += data
-		response.on 'end', ->
-			msg = "You've been removed from the queue"
-			delete pins[user.name]
-			PMManager.queuePMs [msg], user.userid
-	http.request(queueOptions, cb).end()
+	PinManager.get user.userid, (error, pin) ->
+		if pin is null
+			PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
+			return
+		queueOptions = {
+			host: host
+			path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pin.pin +
+				"&whichLine="+queueLineID
+		}
+		console.log queueOptions.path
+		cb = (response) ->
+			response.setEncoding('utf8');
+			str = ''
+			response.on 'data', (data) ->
+				str += data
+			response.on 'end', ->
+				msg = "You've been removed from the queue"
+				PinManager.del user.userid
+				PMManager.queuePMs [msg], user.userid
+		http.request(queueOptions, cb).end()
 updateStatusIfInQueue = (queue, user, status) ->
 	userID = user.userID
-	name = user.name.replace(/'/g,"")
+	name = makeNameQueueSafe(user.name)
 	for queuePerson in queue
 		if queuePerson.name is name
 			updateStatus(queuePerson, user, status)
@@ -205,28 +201,29 @@ updateStatus = (queuePerson, user, status) ->
 	if oldStatus is 'bathroom'
 		oldStatus = 'restroom'
 	status = oldStatus.charAt(0).toUpperCase() + oldStatus.slice(1);
-	if typeof pins[user.name] is 'undefined'
-		PMManager.queuePMs ['Sorry, I don\'t know your PIN.'], user.userid
-		return
-	reqOpts = {
-		host: host
-		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID +
-			'&linePIN=' + pins[user.name]['pin'] +
-			'&whichLine=' + queueLineID + '&lineStatus=' + status
-	}
-	console.log reqOpts.path
-	cb = (response) ->
-		response.setEncoding('utf8');
-		str = ''
-		response.on 'data', (data) ->
-			str += data
-		response.on 'end', ->
-			msg = "Your status has been updated to: " + status
-			PMManager.queuePMs [msg], user.userid
-	http.request(reqOpts, cb).end()
+	PinManager.get user.userid, (error, pin)->
+		if pin is null
+			PMManager.queuePMs ['Sorry, I don\'t know your PIN.'], user.userid
+			return
+		reqOpts = {
+			host: host
+			path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID +
+				'&linePIN=' + pin.pin +
+				'&whichLine=' + queueLineID + '&lineStatus=' + status
+		}
+		console.log reqOpts.path
+		cb = (response) ->
+			response.setEncoding('utf8');
+			str = ''
+			response.on 'data', (data) ->
+				str += data
+			response.on 'end', ->
+				msg = "Your status has been updated to: " + status
+				PMManager.queuePMs [msg], user.userid
+		http.request(reqOpts, cb).end()
 checkInIfInList = (queue, user) ->
 	userID = user.userid
-	name = user.name.replace(/'/g,"")
+	name = makeNameQueueSafe(user.name)
 	for queuePerson in queue
 		if queuePerson.name is name
 			checkIn(queuePerson, user)
@@ -235,24 +232,25 @@ checkInIfInList = (queue, user) ->
 checkIn = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
-	if typeof pins[user.name] is 'undefined'
-		PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
-		return
-	queueOptions = {
-		host: host
-		path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pins[user.name]['pin'] +
-			"&whichLine="+queueLineID
-	}
-	console.log queueOptions.path
-	cb = (response) ->
-		response.setEncoding('utf8');
-		str = ''
-		response.on 'data', (data) ->
-			str += data
-		response.on 'end', ->
-			msg = "You've been checked in"
-			PMManager.queuePMs [msg], user.userid
-	http.request(queueOptions, cb).end()
+	PinManager.get user.userid, (error, pin) ->
+		if pin is null
+			PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
+			return
+		queueOptions = {
+			host: host
+			path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pin.pin +
+				"&whichLine="+queueLineID
+		}
+		console.log queueOptions.path
+		cb = (response) ->
+			response.setEncoding('utf8');
+			str = ''
+			response.on 'data', (data) ->
+				str += data
+			response.on 'end', ->
+				msg = "You've been checked in"
+				PMManager.queuePMs [msg], user.userid
+		http.request(queueOptions, cb).end()
 parsePM = (pm, user) ->
 	pm.text = pm.text.toLowerCase().trim()
 	if devMode
@@ -316,12 +314,31 @@ pmHelp = (msg, userid) ->
 	else if msg is 'status'
     	msgs = ["To change your status, pm me one of the following: lunch, meeting, restroom or here"]
 	PMManager.queuePMs msgs, userid
-bot.on 'speak', (data) ->
-	lower  = data.text.toLowerCase().trim()
-	if lower.match(/^\/?\+?q(ueue)?\+?$/)
-		pmHelp("help", data.userid)
 
-bot.on 'pmmed', (data) ->
-	profiles.getProfile data.senderid, (profile) ->
-		parsePM data, profile
+init = () -> 
+	if typeof process.env.AUTH is 'undefined'
+		console.log 'setup bot environmnet vars first'
+		process.exit()
+	if typeof process.env.REDISURL is 'undefined'
+		console.log 'need redis url'
+		process.exit()
+	rtg = require("url").parse(process.env.REDISURL)
+	redisClient = redis.createClient(rtg.port, rtg.hostname)
+	redisClient.auth(rtg.auth.split(":")[1],redis.print)
+	PinManager.init(redisClient)
+	bot = new TTAPI(process.env.AUTH, process.env.USERID);
+	profiles.init(bot)
+	PMManager.setBot(bot)
+	ChatManager.setBot bot
+	bot.on 'ready', (data) -> 
+		bot.roomRegister process.env.ROOMID
 
+	bot.on 'speak', (data) ->
+		lower  = data.text.toLowerCase().trim()
+		if lower.match(/^\/?\+?q(ueue)?\+?$/)
+			pmHelp("help", data.userid)
+
+	bot.on 'pmmed', (data) ->
+		profiles.getProfile data.senderid, (profile) ->
+			parsePM data, profile
+init()
