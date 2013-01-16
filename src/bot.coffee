@@ -159,6 +159,21 @@ addToQueue = (user) ->
 	console.log addData
 	req.write(addData)
 	req.end()
+doQueueActionIfInQueue = (queue, user, action, pmOnFail = false) ->
+	#we need the line ID that is saved
+	PinManager.get user.userid, (error, pin) ->
+		if pin is null
+			if pmOnFail
+				PMManager.queuePMs ["Hmm I don't know anything about you."], user.userid
+			return
+		for queuePerson in queue
+			if queuePerson.lineID is pin.lineID
+				action queuePerson, user
+				return
+		# if method hasn't returned by now. it hasn't been successful
+		if pmOnFail
+			PMManager.queuePMs ["Hmm you don't seem to be in the queue."]
+			console.log("REMOVE THEM FROM PinManager?!")
 removeFromQueue = (queue, user) ->
 	userID = user.userid
 	name = makeNameQueueSafe(user.name)
