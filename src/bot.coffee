@@ -41,8 +41,8 @@ processQueueHTML = (html, callback) ->
 		name = $(tds[1]).text()
 		time = $(tds[2]).text()
 		status = $(tds[6]).find('select').val()
-		queueID = $(tds[6]).find('select').attr('id').substr(7)
-		item = {name: name, time: time, status: status, queueID: queueID}
+		lineID = $(tds[6]).find('select').attr('id').substr(7)
+		item = {name: name, time: time, status: status, lineID: lineID}
 		curQ.push(item)
 	latestQueue = curQ
 	callback(curQ)
@@ -106,17 +106,53 @@ numberToEmoji = (num) ->
 makeNameQueueSafe = (name) ->
 	return name.replace(/'/g, "")
 addToQueueIfNotInQueue = (queue, user) ->
+	###
+	if we have pin
+		get current queue
+		for each in q
+			if line id matches
+				pm already in the queue
+		no matches
+			remove pin from pin manager
+			add them to queue
+	no pin
+		add them to queue
+	###
+	PinManager.get user.userid, (err, pin) ->
+		if pin isnt null
+			#get current queue
+			requestQueue (queue) -> 
+				username = makeNameQueueSafe(user.name)
+				for queuePerson in queue
+					if queuePerson.lineID is pin.lineID
+						#pm already in queue & stop
+						PMManager.queuePMs ["It looks like you are already in the queue!"], user.userid
+						return
+					else if queuePerson.name is username
+						PMManager.queuePMs ["Someone with your name exists in the queue, but it wasn't added through me.",
+							"Remove it and you can add through me."], user.userid
+						return
+				#if we get this far there have been no matches
+				#delete their existing pin and add them to the queue
+				PinManager.del user.userid, ->
+					addToQueue user
+		else
+			#we don't have a pin for them
+			addToQueue user
+						
+	###
 	username = makeNameQueueSafe(user.name)
 	for person in queue
 		if person.name is username
 			PMManager.queuePMs ["You are already in the queue."], user.userid
 			return false
 	addToQueue(user)
+	###
 savePinInQueue = (queue, pin, user) ->
 	queueName = makeNameQueueSafe(user.name)
 	for person in queue
 		if person.name is queueName
-			savePin person.queueID, pin, user.userid
+			savePin person.lineID, pin, user.userid
 			break
 savePin = (lineID, pin, userid) ->
 	pinO = {lineID: lineID, pin: pin}
@@ -159,30 +195,33 @@ addToQueue = (user) ->
 	console.log addData
 	req.write(addData)
 	req.end()
-doQueueActionIfInQueue = (queue, user, action, pmOnFail = false) ->
-	#we need the line ID that is saved
-	PinManager.get user.userid, (error, pin) ->
-		if pin is null
-			if pmOnFail
-				PMManager.queuePMs ["Hmm I don't know anything about you."], user.userid
-			return
-		for queuePerson in queue
-			if queuePerson.lineID is pin.lineID
-				action queuePerson, user
-				return
-		# if method hasn't returned by now. it hasn't been successful
-		if pmOnFail
-			PMManager.queuePMs ["Hmm you don't seem to be in the queue."]
-			console.log("REMOVE THEM FROM PinManager?!")
-removeFromQueue = (queue, user) ->
-	userID = user.userid
-	name = makeNameQueueSafe(user.name)
+doQueueActionIfInQueue = (user, action, pmOnFail = false, arg1) ->
+	#we need to see if we have a pin saved for this user
+	#and to ensure the lineID corresponded with that pin exists in the current queue
 
-	for queuePerson in queue
-		if queuePerson.name is name
-			removeQueuedPerson(queuePerson, user)
+	#request pin for current user
+	PinManager.get user.userid, (error, pin) ->
+		#if we don't have pin (maybe send a PM) & dont do action
+		if pin is null
+			#if we are pming a fail message
+			if pmOnFail
+				PMManager.queuePMs ["Sorry, doesn't seem like you added through me. [1]"], user.userid
 			return
-	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
+		#we do have a pin saved for this user
+		#ensure the pin we have saved is in the current queue
+		requestQueue (queue) ->
+			for queuePerson in queue
+				#if we find a matching lineID do the action!
+				if queuePerson.lineID is pin.lineID
+					action queuePerson, user, arg1
+					return
+
+			# if method hasn't returned by now. it hasn't been successful
+			# the lineID doesn't match up (maybe send a PM) & don't do our action
+			if pmOnFail
+				PMManager.queuePMs ["Sorry, doesn't seem like you added through me. [2]"], user.userid
+				console.log("REMOVE THEM FROM PinManager?!")
+
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
@@ -192,7 +231,7 @@ removeQueuedPerson = (queuePerson, user) ->
 			return
 		queueOptions = {
 			host: host
-			path: '/lineDeleteProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pin.pin +
+			path: '/lineDeleteProcess.php?lineID=' + queuePerson.lineID + '&linePIN=' + pin.pin +
 				"&whichLine="+queueLineID
 		}
 		console.log queueOptions.path
@@ -206,14 +245,7 @@ removeQueuedPerson = (queuePerson, user) ->
 				PinManager.del user.userid
 				PMManager.queuePMs [msg], user.userid
 		http.request(queueOptions, cb).end()
-updateStatusIfInQueue = (queue, user, status) ->
-	userID = user.userID
-	name = makeNameQueueSafe(user.name)
-	for queuePerson in queue
-		if queuePerson.name is name
-			updateStatus(queuePerson, user, status)
-			return
-	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
+
 updateStatus = (queuePerson, user, status) ->
 	oldStatus = status.toLowerCase()
 	if oldStatus is 'bathroom'
@@ -225,7 +257,7 @@ updateStatus = (queuePerson, user, status) ->
 			return
 		reqOpts = {
 			host: host
-			path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID +
+			path: '/lineCheckInProcess.php?lineID=' + queuePerson.lineID +
 				'&linePIN=' + pin.pin +
 				'&whichLine=' + queueLineID + '&lineStatus=' + status
 		}
@@ -239,14 +271,7 @@ updateStatus = (queuePerson, user, status) ->
 				msg = "Your status has been updated to: " + status
 				PMManager.queuePMs [msg], user.userid
 		http.request(reqOpts, cb).end()
-checkInIfInList = (queue, user) ->
-	userID = user.userid
-	name = makeNameQueueSafe(user.name)
-	for queuePerson in queue
-		if queuePerson.name is name
-			checkIn(queuePerson, user)
-			return
-	PMManager.queuePMs ['You are not in the queue. I think.'], user.userid
+
 checkIn = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
@@ -256,7 +281,7 @@ checkIn = (queuePerson, user) ->
 			return
 		queueOptions = {
 			host: host
-			path: '/lineCheckInProcess.php?lineID=' + queuePerson.queueID + '&linePIN=' + pin.pin +
+			path: '/lineCheckInProcess.php?lineID=' + queuePerson.lineID + '&linePIN=' + pin.pin +
 				"&whichLine="+queueLineID
 		}
 		console.log queueOptions.path
@@ -286,13 +311,13 @@ parsePM = (pm, user) ->
 	else if pm.text is 'add' or pm.text is 'a'
 		requestQueue (queue) -> addToQueueIfNotInQueue(queue, user)
 	else if pm.text is 'rm' or pm.text is 'r' or pm.text is 'remove'
-		requestQueue (queue) -> removeFromQueue(queue,user)
+		doQueueActionIfInQueue user, removeQueuedPerson, true
 	else if pm.text is 'c' or pm.text is 'ci' or pm.text is 'checkin' or pm.text is 'check in'
-		requestQueue (queue) -> checkInIfInList(queue,user)
+		doQueueActionIfInQueue user, checkIn, true
 	else if pm.text is 'q' or pm.text is 'queue'
 		requestQueue (queue) -> sendQueueInPM(queue,user)
 	else if pm.text is 'lunch' or pm.text is 'meeting' or pm.text is 'restroom' or pm.text is 'bathroom' or pm.text is 'here'
-		 requestQueue (queue) -> updateStatusIfInQueue(queue, user, pm.text)
+		 doQueueActionIfInQueue user, updateStatus, true, pm.text
 	
 	else if pm.text is '=chatmodeon'
 		if adminIDs.indexOf user.userid isnt -1
@@ -320,7 +345,6 @@ parsePM = (pm, user) ->
 	else 
 		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
 	console.log "pm: " + user.name + ": " + pm.text
-	#console.log user
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"

@@ -8,10 +8,10 @@ get = (userid,cb) ->
 		else
 			cb error, JSON.parse(json)
 	
-set = (userid,pin) ->
+set = (userid,pin,cb=null) ->
 	redisClient.set("PIN-" + userid, JSON.stringify(pin))
-del = (userid) ->
-	redisClient.del("PIN-" + userid)
+del = (userid,cb=null) ->
+	redisClient.del("PIN-" + userid,cb)
 exports.get = get
 exports.set = set
 exports.del = del
