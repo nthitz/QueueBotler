@@ -403,7 +403,7 @@ init = () ->
 			parsePM data, profile
 	bot.on 'add_dj', (data) ->
 		doQueueActionIfInQueue data.user[0], (queuePerson, user) ->
-			PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], newDJUserID
+			PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], data.user[0].userid
 		, false
 
 	bot.on 'newsong', (data) ->
