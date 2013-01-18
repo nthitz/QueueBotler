@@ -104,7 +104,9 @@ numberToEmoji = (num) ->
 		when 9 then return ":nine:"
 		else return num	+ ":"
 makeNameQueueSafe = (name) ->
-	return name.replace(/'/g, "")
+	name = name.replace(/'/g,"")
+	#name = name.replace(/\\/g,"\\\\")
+	return name
 addToQueueIfNotInQueue = (queue, user) ->
 	###
 	if we have pin
@@ -129,7 +131,7 @@ addToQueueIfNotInQueue = (queue, user) ->
 						PMManager.queuePMs ["It looks like you are already in the queue!"], user.userid
 						return
 					else if queuePerson.name is username
-						PMManager.queuePMs ["Someone with your name exists in the queue, but it wasn't added through me.",
+						PMManager.queuePMs ["Someone with your name exists in the queue, but it was not added through me.",
 							"Remove it and you can add through me."], user.userid
 						return
 				#if we get this far there have been no matches
@@ -150,6 +152,7 @@ addToQueueIfNotInQueue = (queue, user) ->
 	###
 savePinInQueue = (queue, pin, user) ->
 	queueName = makeNameQueueSafe(user.name)
+
 	for person in queue
 		if person.name is queueName
 			savePin person.lineID, pin, user.userid
@@ -164,8 +167,11 @@ addToQueue = (user) ->
 		strPin = Math.floor(Math.random()*10) + strPin
 	if pin < 10
 		strPin = Math.floor(Math.random()*10) + strPin
-	
+
 	queueName = makeNameQueueSafe(user.name)
+	#this is a sosimpull bug if you axe me
+	queueName = queueName.replace(/\\/g,"\\\\")
+	
 	addData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
       lineName: queueName
@@ -188,8 +194,8 @@ addToQueue = (user) ->
 		response.on 'data', (data) ->
 			str += data
 		response.on 'end', ->
-			requestQueue (queue) -> savePinInQueue queue, strPin, user
-			msg = "You've been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
+			requestQueue (q) -> savePinInQueue q, strPin, user
+			msg = "You have been added to the queue, your pin is " + strPin + ". Estimated position in line #" + (latestQueue.length + 1)
 			PMManager.queuePMs [msg], user.userid
 	req = http.request queueOptions, cb
 	console.log addData
@@ -205,7 +211,7 @@ doQueueActionIfInQueue = (user, action, pmOnFail = false, arg1) ->
 		if pin is null
 			#if we are pming a fail message
 			if pmOnFail
-				PMManager.queuePMs ["Sorry, doesn't seem like you added through me. [1]"], user.userid
+				PMManager.queuePMs ["Sorry, it does not seem like you added through me. [1]"], user.userid
 			return
 		#we do have a pin saved for this user
 		#ensure the pin we have saved is in the current queue
@@ -219,15 +225,15 @@ doQueueActionIfInQueue = (user, action, pmOnFail = false, arg1) ->
 			# if method hasn't returned by now. it hasn't been successful
 			# the lineID doesn't match up (maybe send a PM) & don't do our action
 			if pmOnFail
-				PMManager.queuePMs ["Sorry, doesn't seem like you added through me. [2]"], user.userid
-				console.log("REMOVE THEM FROM PinManager?!")
+				PMManager.queuePMs ["Sorry, it does not seem like you added through me. [2]"], user.userid
+				PinManager.del user.userid
 
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
 	PinManager.get user.userid, (error, pin) ->
 		if pin is null
-			PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
+			PMManager.queuePMs ["Sorry, I do not know your PIN."], user.userid
 			return
 		queueOptions = {
 			host: host
@@ -241,7 +247,7 @@ removeQueuedPerson = (queuePerson, user) ->
 			response.on 'data', (data) ->
 				str += data
 			response.on 'end', ->
-				msg = "You've been removed from the queue"
+				msg = "You have been removed from the queue."
 				PinManager.del user.userid
 				PMManager.queuePMs [msg], user.userid
 		http.request(queueOptions, cb).end()
@@ -253,7 +259,7 @@ updateStatus = (queuePerson, user, status) ->
 	status = oldStatus.charAt(0).toUpperCase() + oldStatus.slice(1);
 	PinManager.get user.userid, (error, pin)->
 		if pin is null
-			PMManager.queuePMs ['Sorry, I don\'t know your PIN.'], user.userid
+			PMManager.queuePMs ['Sorry, I do not know your PIN.'], user.userid
 			return
 		reqOpts = {
 			host: host
@@ -277,7 +283,7 @@ checkIn = (queuePerson, user) ->
 		#"&linePIN=" + linePIN + "&whichLine=0
 	PinManager.get user.userid, (error, pin) ->
 		if pin is null
-			PMManager.queuePMs ["Sorry, I don't know your PIN."], user.userid
+			PMManager.queuePMs ["Sorry, I do not know your PIN."], user.userid
 			return
 		queueOptions = {
 			host: host
@@ -395,4 +401,12 @@ init = () ->
 	bot.on 'pmmed', (data) ->
 		profiles.getProfile data.senderid, (profile) ->
 			parsePM data, profile
+	bot.on 'add_dj', (data) ->
+		doQueueActionIfInQueue data.user[0], (queuePerson, user) ->
+			PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], newDJUserID
+		, false
+
+	bot.on 'newsong', (data) ->
+		userO = {userid: data.room.metadata.current_dj}
+		doQueueActionIfInQueue userO, removeQueuedPerson, false
 init()
