@@ -18,6 +18,78 @@ devMode = false
 bot = null
 redisClient = null
 chatModeOnFor = []
+lastIdleUserCheck = null
+checkForIdleUsers = (queue) ->
+	doCheck = false
+	if lastIdleUserCheck is null
+		doCheck = true
+		lastIdleUserCheck = new Date().value
+	else 
+		curTime = new Date().value
+		idleCheckEvery = 60
+		if curTime - lastIdleUserCheck > idleCheckEvery
+			doCheck = true
+			lastIdleUserCheck = curTime
+	if !doCheck
+		return
+	redisClient.keys "PIN*", (err, data) ->
+		console.log data
+		allPins = []
+		for pin in data
+			userid = pin.substr(4)
+			allPins.push userid
+		requestPinArray(allPins, removeIdleUsers, queue)
+requestPinArray = (pins,cb,arg1) ->
+	console.log(cb)
+	requestPin(pins, [],cb, arg1)
+requestPin = (pinList, pinStorage,cb,arg1) ->
+	if pinList.length is pinStorage.length
+		cb(pinStorage,arg1)
+	PinManager.get pinList[pinStorage.length], (err, pin) ->
+		if pin isnt null
+			pin.userid = pinList[pinStorage.length]
+		pinStorage.push pin
+		requestPin pinList, pinStorage, cb, arg1
+removeIdleUsers = (pins, queue) ->
+
+	#first remove any stored pins with an invalid lineID
+	validUserIDs = []
+	for pin in pins
+		if pin is null
+			continue
+		validLineID = false
+		for queuePerson in queue
+			if queuePerson.lineID is pin.lineID
+				validLineID = true
+				break
+		if !validLineID
+			PinManager.del pin.userid
+		else
+			validUserIDs.push pin.userid
+
+	#then go through current queue
+	#if any idle users that we have pins for rm them
+
+	idleTime = 120
+	idleUsers = []
+	for queuePerson in queue
+		timeParts = queuePerson.time.split(' ')
+		mins = parseInt(timeParts[0])
+		if mins >= idleTime
+			idleUsers.push queuePerson
+	for idleUser in idleUsers
+		if validUserIDs.indexOf idleUser.userid isnt -1
+			pinO = null
+			for pin in pins
+				if pin.lineID is idleUser.lineID
+					pinO = pin
+					break
+			if pinO is null
+				console.error 'couldn\'t find pin?'
+				continue
+			console.log 'remove'
+			removeQueuedPerson idleUser, pinO
+
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
@@ -44,6 +116,7 @@ processQueueHTML = (html, callback) ->
 		lineID = $(tds[6]).find('select').attr('id').substr(7)
 		item = {name: name, time: time, status: status, lineID: lineID}
 		curQ.push(item)
+	checkForIdleUsers(curQ)
 	latestQueue = curQ
 	callback(curQ)
 getQueueMessages = (queue) ->
