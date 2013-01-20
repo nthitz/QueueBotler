@@ -88,7 +88,7 @@ removeIdleUsers = (pins, queue) ->
 			#console.log 'remove'
 			#console.log idleUser
 			#console.log pinO
-			#removeQueuedPerson idleUser, pinO
+			removeQueuedPerson idleUser, pinO
 
 requestQueue = (callback) ->
 	queueOptions = {
