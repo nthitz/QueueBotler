@@ -44,6 +44,7 @@ requestPin = (pinList, pinStorage,cb,arg1) ->
 	if pinList.length is pinStorage.length
 		pinList = null
 		cb(pinStorage,arg1)
+		return
 	PinManager.get pinList[pinStorage.length], (err, pin) ->
 		if pin isnt null
 			pin.userid = pinList[pinStorage.length]
