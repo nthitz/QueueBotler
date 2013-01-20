@@ -18,14 +18,14 @@ devMode = false
 bot = null
 redisClient = null
 chatModeOnFor = []
-lastIdleUserCheck = null
+lastIdleUserCheck = new Date().getTime()
 checkForIdleUsers = (queue) ->
 	doCheck = false
 	if lastIdleUserCheck is null
 		doCheck = true
-		lastIdleUserCheck = new Date().value
+		lastIdleUserCheck = new Date().getTime()
 	else 
-		curTime = new Date().value
+		curTime = new Date().getTime()
 		idleCheckEvery = 60
 		if curTime - lastIdleUserCheck > idleCheckEvery
 			doCheck = true
@@ -33,14 +33,12 @@ checkForIdleUsers = (queue) ->
 	if !doCheck
 		return
 	redisClient.keys "PIN*", (err, data) ->
-		console.log data
 		allPins = []
 		for pin in data
 			userid = pin.substr(4)
 			allPins.push userid
 		requestPinArray(allPins, removeIdleUsers, queue)
 requestPinArray = (pins,cb,arg1) ->
-	console.log(cb)
 	requestPin(pins, [],cb, arg1)
 requestPin = (pinList, pinStorage,cb,arg1) ->
 	if pinList.length is pinStorage.length
@@ -69,7 +67,7 @@ removeIdleUsers = (pins, queue) ->
 
 	#then go through current queue
 	#if any idle users that we have pins for rm them
-	
+
 	idleTime = 120
 	idleUsers = []
 	for queuePerson in queue
@@ -87,8 +85,10 @@ removeIdleUsers = (pins, queue) ->
 			if pinO is null
 				console.error 'couldn\'t find pin?'
 				continue
-			console.log 'remove'
-			removeQueuedPerson idleUser, pinO
+			#console.log 'remove'
+			#console.log idleUser
+			#console.log pinO
+			#removeQueuedPerson idleUser, pinO
 
 requestQueue = (callback) ->
 	queueOptions = {
