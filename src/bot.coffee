@@ -20,7 +20,6 @@ redisClient = null
 chatModeOnFor = []
 lastIdleUserCheck = new Date().getTime()
 checkForIdleUsers = (queue) ->
-	return
 	doCheck = false
 	if lastIdleUserCheck is null
 		doCheck = true
@@ -43,6 +42,7 @@ requestPinArray = (pins,cb,arg1) ->
 	requestPin(pins, [],cb, arg1)
 requestPin = (pinList, pinStorage,cb,arg1) ->
 	if pinList.length is pinStorage.length
+		pinList = null
 		cb(pinStorage,arg1)
 	PinManager.get pinList[pinStorage.length], (err, pin) ->
 		if pin isnt null
@@ -90,7 +90,8 @@ removeIdleUsers = (pins, queue) ->
 			#console.log idleUser
 			#console.log pinO
 			removeQueuedPerson idleUser, pinO
-
+	pins = null
+	queue = null
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
