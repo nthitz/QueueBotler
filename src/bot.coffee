@@ -69,7 +69,7 @@ removeIdleUsers = (pins, queue) ->
 
 	#then go through current queue
 	#if any idle users that we have pins for rm them
-
+	
 	idleTime = 120
 	idleUsers = []
 	for queuePerson in queue
