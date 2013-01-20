@@ -20,6 +20,7 @@ redisClient = null
 chatModeOnFor = []
 lastIdleUserCheck = new Date().getTime()
 checkForIdleUsers = (queue) ->
+	return
 	doCheck = false
 	if lastIdleUserCheck is null
 		doCheck = true
