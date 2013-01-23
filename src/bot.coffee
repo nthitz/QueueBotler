@@ -53,7 +53,8 @@ requestPin = (pinList, pinStorage,cb,arg1) ->
 removeIdleUsers = (pins, queue) ->
 
 	#first remove any stored pins with an invalid lineID
-	validUserIDs = []
+	#save user ids of people with saved pins who are in the queue
+	validLineIDs = []
 	for pin in pins
 		if pin is null
 			continue
@@ -65,7 +66,7 @@ removeIdleUsers = (pins, queue) ->
 		if !validLineID
 			PinManager.del pin.userid
 		else
-			validUserIDs.push pin.userid
+			validLineIDs.push pin.lineID
 
 	#then go through current queue
 	#if any idle users that we have pins for rm them
@@ -78,19 +79,20 @@ removeIdleUsers = (pins, queue) ->
 		if mins >= idleTime
 			idleUsers.push queuePerson
 	for idleUser in idleUsers
-		if validUserIDs.indexOf idleUser.userid isnt -1
-			pinO = null
-			for pin in pins
-				if pin.lineID is idleUser.lineID
-					pinO = pin
-					break
-			if pinO is null
-				console.error 'couldn\'t find pin?'
-				continue
-			#console.log 'remove'
-			#console.log idleUser
-			#console.log pinO
-			removeQueuedPerson idleUser, pinO
+		if validLineIDs.indexOf(idleUser.lineID) isnt -1
+			if pins.length > 0
+				pinO = null
+				for pin in pins
+					if pin.lineID is idleUser.lineID
+						pinO = pin
+						break
+				if pinO is null
+					console.error 'couldn\'t find pin?'
+					continue
+				#console.log 'remove'
+				#console.log idleUser
+				#console.log pinO
+				removeQueuedPerson idleUser, pinO
 	pins = null
 	queue = null
 requestQueue = (callback) ->
