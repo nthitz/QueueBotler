@@ -19,6 +19,9 @@ bot = null
 redisClient = null
 chatModeOnFor = []
 lastIdleUserCheck = new Date().getTime()
+masterPin = process.env.MASTERPIN
+masterPinEnabled = typeof masterPin isnt 'undefined'
+
 checkForIdleUsers = (queue) ->
 	doCheck = false
 	if lastIdleUserCheck is null
@@ -93,6 +96,8 @@ removeIdleUsers = (pins, queue) ->
 				#console.log idleUser
 				#console.log pinO
 				removeQueuedPerson idleUser, pinO
+		else if masterPinEnabled
+			masterPinRemove idleUser.lineID
 	pins = null
 	queue = null
 requestQueue = (callback) ->
@@ -305,7 +310,22 @@ doQueueActionIfInQueue = (user, action, pmOnFail = false, arg1) ->
 			if pmOnFail
 				PMManager.queuePMs ["Sorry, it does not seem like you added through me. [2]"], user.userid
 				PinManager.del user.userid
-
+masterPinRemove = (lineID) ->
+	queueOptions = {
+		host: host
+		path: '/lineDeleteProcess.php?lineID=' + lineID + '&linePIN=' + masterPin +
+			"&whichLine="+queueLineID
+	}
+	console.log 'removing ' + lineID + ' with master pin'
+	#console.log queueOptions.path
+	cb = (response) ->
+		response.setEncoding('utf8');
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			msg = "You have been removed from the queue."
+	http.request(queueOptions, cb).end()
 removeQueuedPerson = (queuePerson, user) ->
 	#http://www.sosimpull.com/lineDeleteProcess.php?lineID=" + lineID  + 
 		#"&linePIN=" + linePIN + "&whichLine=0
@@ -432,7 +452,7 @@ parsePM = (pm, user) ->
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"
-		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. Here are some commands: add, remove, checkin, queue, about, status. Reply \"help [command]\" for more info on any command (I only work through PMs!)"]
+		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. I work through PRIVATE MESSAGES NOT CHAT! Here are some commands: add, remove, checkin, queue, about, status. PM \"help [command]\" for more info on any command"]
 	else if msg is 'add'
 		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
 	else if msg is "remove"
