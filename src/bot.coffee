@@ -507,4 +507,5 @@ init = () ->
 	bot.on 'newsong', (data) ->
 		userO = {userid: data.room.metadata.current_dj}
 		doQueueActionIfInQueue userO, removeQueuedPerson, false
-init()
+setTimeout init, process.env.STARTUPTIME
+
