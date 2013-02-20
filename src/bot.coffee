@@ -11,7 +11,7 @@ redis = require 'redis'
 DEBUG = false
 host = 'www.sosimpull.com'
 latestQueue = null
-queueLineID = 0 # it's 0 for mashup.fm 
+queueLineID = 7 # it's 7 for social goat
 #pins = {} # meh, poor, hey using redis now, way better!
 adminIDs = ["4f50f403590ca262030050e7"]
 devMode = false
@@ -103,7 +103,7 @@ removeIdleUsers = (pins, queue) ->
 requestQueue = (callback) ->
 	queueOptions = {
 		host: host
-		path: '/line.php'
+		path: '/SocialGoat.php'
 	}
 	cb = (response) ->
 		str = ''
@@ -131,7 +131,7 @@ processQueueHTML = (html, callback) ->
 	callback(curQ)
 getQueueMessages = (queue) ->
 	msgs = []
-	msgs.push 'Current Queue from http://sosimpull.com/mashupfm-line/'
+	msgs.push 'Current Queue'
 	lineNum = 0
 	if queue.length isnt 0
 		for index of queue
@@ -452,22 +452,20 @@ parsePM = (pm, user) ->
 pmHelp = (msg, userid) ->
 	msgs = []
 	if msg is "help"
-		msgs = ["Hello, I'm QueueBotler for the mashup.fm line @ http://sosimpull.com/mashupfm-line/. I work through PRIVATE MESSAGES NOT CHAT! Here are some commands: add, remove, checkin, queue, about, status. PM \"help [command]\" for more info on any command"]
+		msgs = ["Hello, I'm TheDropBot and I work through PRIVATE MESSAGES NOT CHAT! Here are some commands: add, remove, checkin, queue, about, status. PM \"help [command]\" for more info on any command"]
 	else if msg is 'add'
-		msgs = ["add: adds you to the sosimpull.com queue", "aliases: add, a"]
+		msgs = ["add: adds you to the queue", "aliases: add, a"]
 	else if msg is "remove"
-		msgs = ["remove: removes you from the sosimpull.com queue","only works if you added with the bot"
+		msgs = ["remove: removes you from the queue","only works if you added with the bot"
 		"aliases: remove, rm, r"]
 	else if msg is "checkin"
-		msgs = ["checkin: checks you in to the sosimpull.com queue", "only works if you added with the bot"
+		msgs = ["checkin: checks you in to the queue", "only works if you added with the bot"
 		,"aliases: checkin, check in, ci, c"]
 	else if msg is "queue"
 		msgs = ["queue: pms you the current queue", "aliases: queue, q",
 		"if you are a mod or on deck you can append 'chat' to send the queue to the chat ex: \"q chat\""]
 	else if msg is 'about'
-		msgs = ["Real line here: http://sosimpull.com/mashupfm-line/", 
-    	"Facebook Group http://www.facebook.com/groups/mashupfm/",
-    	"Rules http://bit.ly/TLBLyC" ,
+		msgs = ["The Drop Bot" ,
     	"Created by @nthitz - nthtiz AT gmail DOT com"]
 	else if msg is 'status'
     	msgs = ["To change your status, pm me one of the following: lunch, meeting, restroom or here"]
