@@ -495,6 +495,9 @@ init = () ->
 			pmHelp("help", data.userid)
 
 	bot.on 'pmmed', (data) ->
+		if data.senderid is process.env.USERID
+			#ignore pms I send myself lol wtf
+			return;
 		profiles.getProfile data.senderid, (profile) ->
 			parsePM data, profile
 	bot.on 'add_dj', (data) ->
@@ -505,5 +508,9 @@ init = () ->
 	bot.on 'newsong', (data) ->
 		userO = {userid: data.room.metadata.current_dj}
 		doQueueActionIfInQueue userO, removeQueuedPerson, false
+	bot.on 'registered', (data) ->
+		console.log 'regged'
+		console.log data
+		PMManager.queuePMs ["Welcome to March to the Madness hosted by The Drop, BreeBotJr and kroydeveloper. Check the room info for artist information. Have fun!"], data.user[0].userid
 setTimeout init, process.env.STARTUPTIME
 
