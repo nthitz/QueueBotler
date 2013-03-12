@@ -115,6 +115,7 @@ requestQueue = (callback) ->
 	req.end()
 
 processQueueHTML = (html, callback) ->
+	console.log(html)
 	$h = $(html)
 	trs = $h.find('tbody').find('tr')
 	curQ = []
