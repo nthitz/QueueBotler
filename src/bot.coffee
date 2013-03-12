@@ -274,6 +274,7 @@ addToQueue = (user) ->
 	        'Content-Length': addData.length
     
 	}
+	console.log(queueOptions)
 	cb = (response) ->
 		response.setEncoding('utf8');
 
