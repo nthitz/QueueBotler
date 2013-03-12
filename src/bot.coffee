@@ -9,7 +9,7 @@ PinManager = require './PinManager'
 util = require 'util'
 redis = require 'redis'
 DEBUG = false
-host = 'sosimpull.com'
+host = 'www.sosimpull.com'
 latestQueue = null
 queueLineID = 0 # it's 0 for mashup.fm 
 #pins = {} # meh, poor, hey using redis now, way better!
@@ -513,3 +513,24 @@ init = () ->
 		doQueueActionIfInQueue userO, removeQueuedPerson, false
 setTimeout init, process.env.STARTUPTIME
 
+###
+queueOptions = {
+	host: host
+	path: '/line.php'
+}
+console.log(queueOptions)
+cb = (response) ->
+	str = ''
+	response.on 'data', (data) ->
+		console.log('data');
+		console.log(data);
+		str += data
+	response.on 'close',(data) ->
+		console.log('close')
+		console.log(data)
+	response.on 'end', ->
+		console.log('end');
+		console.log(str);
+req = http.request queueOptions, cb
+req.end()
+###
