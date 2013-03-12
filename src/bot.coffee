@@ -1,4 +1,4 @@
-http = require 'http'
+http = require('follow-redirects').http
 $ = require 'jquery'
 querystring = require 'querystring'
 TTAPI    = require('ttapi');
