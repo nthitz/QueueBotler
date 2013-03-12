@@ -105,6 +105,7 @@ requestQueue = (callback) ->
 		host: host
 		path: '/line.php'
 	}
+	console.log(queueOptions)
 	cb = (response) ->
 		str = ''
 		response.on 'data', (data) ->
