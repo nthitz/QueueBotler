@@ -11,9 +11,9 @@
   },
 
   "dependencies": {
-    "jquery": ">= 0",
-    "ttapi": ">= 0",
-    "redis": ">= 0"
+    "jquery": "1.8.3",
+    "ttapi": "1.5.2",
+    "redis": "0.8.2"
   },
 
   "engines": {
