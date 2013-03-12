@@ -109,8 +109,10 @@ requestQueue = (callback) ->
 	cb = (response) ->
 		str = ''
 		response.on 'data', (data) ->
+			console.log(data);
 			str += data
 		response.on 'end', ->
+			console.log(str);
 			processQueueHTML(str,callback)
 	req = http.request queueOptions, cb
 	req.end()
