@@ -92,9 +92,7 @@ removeIdleUsers = (pins, queue) ->
 				if pinO is null
 					console.error 'couldn\'t find pin?'
 					continue
-				#console.log 'remove'
-				#console.log idleUser
-				#console.log pinO
+				
 				removeQueuedPerson idleUser, pinO
 		else if masterPinEnabled
 			masterPinRemove idleUser.lineID
@@ -105,20 +103,16 @@ requestQueue = (callback) ->
 		host: host
 		path: '/line.php'
 	}
-	console.log(queueOptions)
 	cb = (response) ->
 		str = ''
 		response.on 'data', (data) ->
-			console.log(data);
 			str += data
 		response.on 'end', ->
-			console.log(str);
 			processQueueHTML(str,callback)
 	req = http.request queueOptions, cb
 	req.end()
 
 processQueueHTML = (html, callback) ->
-	console.log(html)
 	$h = $(html)
 	trs = $h.find('tbody').find('tr')
 	curQ = []
@@ -274,7 +268,6 @@ addToQueue = (user) ->
 	        'Content-Length': addData.length
     
 	}
-	console.log(queueOptions)
 	cb = (response) ->
 		response.setEncoding('utf8');
 
@@ -513,25 +506,3 @@ init = () ->
 		userO = {userid: data.room.metadata.current_dj}
 		doQueueActionIfInQueue userO, removeQueuedPerson, false
 setTimeout init, process.env.STARTUPTIME
-
-###
-queueOptions = {
-	host: host
-	path: '/line.php'
-}
-console.log(queueOptions)
-cb = (response) ->
-	str = ''
-	response.on 'data', (data) ->
-		console.log('data');
-		console.log(data);
-		str += data
-	response.on 'close',(data) ->
-		console.log('close')
-		console.log(data)
-	response.on 'end', ->
-		console.log('end');
-		console.log(str);
-req = http.request queueOptions, cb
-req.end()
-###
