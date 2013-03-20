@@ -511,6 +511,6 @@ init = () ->
 	bot.on 'registered', (data) ->
 		console.log 'regged'
 		console.log data
-		PMManager.queuePMs ["To Welcome to SocialGoat- play good tunes and enjoy- see room info for rules"], data.user[0].userid
+		PMManager.queuePMs ["Welcome to SocialGoat- play good tunes and enjoy- see room info for rules"], data.user[0].userid
 setTimeout init, process.env.STARTUPTIME
 
