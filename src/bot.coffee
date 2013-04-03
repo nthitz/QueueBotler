@@ -446,6 +446,7 @@ parsePM = (pm, user) ->
 		pmHelp 'queue', user.userid
 	else if pm.text is 'help about'
 		pmHelp 'about', user.userid
+	
 	else 
 		PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
 	console.log "pm: " + user.name + ": " + pm.text
@@ -527,7 +528,6 @@ init = () ->
 	ChatManager.setBot bot
 	bot.on 'ready', (data) -> 
 		bot.roomRegister process.env.ROOMID
-
 	bot.on 'speak', (data) ->
 		lower  = data.text.toLowerCase().trim()
 		if lower.match(/^\/?\+?q(ueue)?\+?$/)
@@ -549,6 +549,6 @@ init = () ->
 	bot.on 'snagged', (data) ->
 		#add the user who snagged it to our list
 		#ensures users cannot snag, delete, snag, delete to boost stats, (I hope!)
-		if snaggedList.indexOf data.userid === -1
+		if snaggedList.indexOf data.userid is -1
 			snaggedList.push data.userid
 setTimeout init, process.env.STARTUPTIME
