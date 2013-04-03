@@ -476,9 +476,9 @@ logSong = (data) ->
 	lastSong = data.room.metadata.current_song
 	if typeof process.env.LOGKEY is 'undefined'
 		return
-	console.log data
-	console.log data.room.metadata.current_song
-	console.log data.room.metadata.votelog
+	#console.log data
+	#console.log data.room.metadata.current_song
+	#console.log data.room.metadata.votelog
 	logData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
       songid: lastSong._id
