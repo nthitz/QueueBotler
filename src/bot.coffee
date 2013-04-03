@@ -21,7 +21,8 @@ chatModeOnFor = []
 lastIdleUserCheck = new Date().getTime()
 masterPin = process.env.MASTERPIN
 masterPinEnabled = typeof masterPin isnt 'undefined'
-
+snaggedList = []
+lastSong = null
 checkForIdleUsers = (queue) ->
 	doCheck = false
 	if lastIdleUserCheck is null
@@ -99,9 +100,10 @@ removeIdleUsers = (pins, queue) ->
 	pins = null
 	queue = null
 requestQueue = (callback) ->
+	randTime = new Date().getTime()
 	queueOptions = {
 		host: host
-		path: '/line.php'
+		path: '/line.php?t=' + randTime
 	}
 	cb = (response) ->
 		str = ''
@@ -470,7 +472,44 @@ pmHelp = (msg, userid) ->
 	else if msg is 'status'
     	msgs = ["To change your status, pm me one of the following: lunch, meeting, restroom or here"]
 	PMManager.queuePMs msgs, userid
-
+logSong = (data) ->
+	lastSong = data.room.metadata.current_song
+	if typeof process.env.LOGKEY is 'undefined'
+		return
+	console.log data
+	console.log data.room.metadata.current_song
+	console.log data.room.metadata.votelog
+	logData = querystring.stringify {
+      whichLine: queueLineID #mashup.fm lime
+      songid: lastSong._id
+      djid: lastSong.djid
+      djname: lastSong.djname
+      starttime: Math.round(lastSong.starttime)
+      up: data.room.metadata.upvotes
+      down: data.room.metadata.downvotes
+      snagged: snaggedList.length
+      key: process.env.LOGKEY
+    }
+    queueOptions = {
+		host: host
+		path: '/logPlay.php'
+		method: 'POST'
+		headers: 
+	        'Content-Type': 'application/x-www-form-urlencoded'
+	        'Content-Length': logData.length
+    
+	}
+	cb = (response) ->
+		response.setEncoding('utf8');
+		str = ''
+		response.on 'data', (data) ->
+			str += data
+		response.on 'end', ->
+			console.log 'logPlay end'
+			console.log str
+	req = http.request queueOptions, cb
+	req.write(logData)
+	req.end()
 init = () -> 
 	if typeof process.env.AUTH is 'undefined'
 		console.log 'setup bot environmnet vars first'
@@ -501,8 +540,15 @@ init = () ->
 		doQueueActionIfInQueue data.user[0], (queuePerson, user) ->
 			PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], data.user[0].userid
 		, false
-
+	bot.on 'endsong', logSong
+		
 	bot.on 'newsong', (data) ->
+		snaggedList.length = 0; #clears array of users who have snagged it
 		userO = {userid: data.room.metadata.current_dj}
 		doQueueActionIfInQueue userO, removeQueuedPerson, false
+	bot.on 'snagged', (data) ->
+		#add the user who snagged it to our list
+		#ensures users cannot snag, delete, snag, delete to boost stats, (I hope!)
+		if snaggedList.indexOf data.userid === -1
+			snaggedList.push data.userid
 setTimeout init, process.env.STARTUPTIME
