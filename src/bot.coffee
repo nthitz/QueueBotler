@@ -521,7 +521,7 @@ logPlay = (data) ->
                 console.log 'logSong response'
                 console.log str
     req = http.request queueOptions, cb
-    console.log logData
+    console.log 'logPlay ' + lastSong._id + " " +  Math.round(lastSong.starttime)
     req.write(logData)
     req.end()
 logSongInList = (songid) ->
@@ -555,7 +555,7 @@ logSong = (song) ->
                 console.log 'songLog response';
                 console.log str
     req = http.request queueOptions, cb
-    console.log songData
+    console.log "logSong " + song._id + " " + song.metadata.song 
     req.write(songData)
     req.end()
 
