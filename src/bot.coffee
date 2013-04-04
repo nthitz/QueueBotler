@@ -531,7 +531,6 @@ logSongInList = (songid) ->
             return;
     console.log songid + ' not found in song log, seems like a bug'
 logSong = (song) ->
-    console.log 'logSong ' + song._id
     song.metadata.songid = song._id
     song.metadata.key = process.env.LOGKEY
     
