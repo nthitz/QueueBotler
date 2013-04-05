@@ -6,6 +6,7 @@ profiles = require './UserProfiles'
 PMManager = require './PMManager'
 ChatManager = require './ChatManager'
 PinManager = require './PinManager'
+IdleUsers = require './IdleUsers'
 util = require 'util'
 redis = require 'redis'
 DEBUG = false
@@ -449,7 +450,10 @@ parsePM = (pm, user) ->
         pmHelp 'queue', user.userid
     else if pm.text is 'help about'
         pmHelp 'about', user.userid
-    
+   
+    else if pm.text is 'active'
+        PMManager.queuePMs ["numActive " + IdleUsers.getActiveCount(10 * 60 * 1000)], user.userid
+
     else 
         PMManager.queuePMs ["Sorry I don't know what you mean. PM me \"help\" for info."], user.userid
     console.log "pm: " + user.name + ": " + pm.text
@@ -476,7 +480,7 @@ pmHelp = (msg, userid) ->
     else if msg is 'status'
         msgs = ["To change your status, pm me one of the following: lunch, meeting, restroom or here"]
     PMManager.queuePMs msgs, userid
-logPlay = (data) ->
+logPlay = (data, numActive, numListeners) ->
     lastSong = data.room.metadata.current_song
     songLog = data.room.metadata.songlog
     if typeof process.env.LOGKEY is 'undefined'
@@ -485,7 +489,9 @@ logPlay = (data) ->
     #console.log data.room.metadata.current_song
     #console.log data.room.metadata.votelog
     #console.log data.room.metadata.songlog
-
+    score =  ((data.room.metadata.upvotes -  data.room.metadata.downvotes + numListeners) / (2 * numListeners)) * 100
+    realScore = ((data.room.metadata.upvotes -  data.room.metadata.downvotes + numActive) / (2 * numActive)) * 100;
+    console.log score + " " + realScore + " " + numListeners + " " + numActive
     logData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
       songid: lastSong._id
@@ -496,6 +502,10 @@ logPlay = (data) ->
       down: data.room.metadata.downvotes
       snagged: snaggedList.length
       key: process.env.LOGKEY
+      numListeners: numListeners
+      numActive: numActive
+      score: score
+      realScore: realScore
     }
 
     queueOptions = {
@@ -521,7 +531,7 @@ logPlay = (data) ->
                 console.log 'logSong response'
                 console.log str
     req = http.request queueOptions, cb
-    console.log 'logPlay ' + lastSong._id + " " +  Math.round(lastSong.starttime)
+    console.log 'logPlay ' + lastSong._id + " " +  Math.round(lastSong.starttime) + " " + numActive
     req.write(logData)
     req.end()
 logSongInList = (songid) ->
@@ -576,6 +586,7 @@ init = () ->
     bot.on 'ready', (data) -> 
         bot.roomRegister process.env.ROOMID
     bot.on 'speak', (data) ->
+        IdleUsers.logUserAction data.userid
         lower  = data.text.toLowerCase().trim()
         if lower.match(/^\/?\+?q(ueue)?\+?$/)
             pmHelp("help", data.userid)
@@ -587,15 +598,26 @@ init = () ->
         doQueueActionIfInQueue data.user[0], (queuePerson, user) ->
             PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], data.user[0].userid
         , false
-    bot.on 'endsong', logPlay
+    bot.on 'endsong', (data) ->
+        IdleUsers.setVotersActive data.room.metadata.votelog
+        IdleUsers.pruneUsers
+        logPlay data, IdleUsers.getActiveCount(10 * 60 * 1000), data.room.metadata.listeners
         
     bot.on 'newsong', (data) ->
         snaggedList.length = 0; #clears array of users who have snagged it
         userO = {userid: data.room.metadata.current_dj}
         doQueueActionIfInQueue userO, removeQueuedPerson, false
     bot.on 'snagged', (data) ->
+        IdleUsers.logUserAction data.userid
         #add the user who snagged it to our list
         #ensures users cannot snag, delete, snag, delete to boost stats, (I hope!)
         if snaggedList.indexOf data.userid is -1
             snaggedList.push data.userid
+    bot.on 'update_votes', (data) ->
+        if typeof data.room.metadata.votelog[0][0] isnt 'undefined'
+            userid = data.room.metadata.votelog[0][0]
+            if userid.length is 24
+                IdleUsers.logUserAction userid
+    bot.on 'registered', (data) ->
+        IdleUsers.logUserAction data.user.userid
 setTimeout init, process.env.STARTUPTIME
