@@ -491,7 +491,7 @@ logPlay = (data, numActive, numListeners) ->
     #console.log data.room.metadata.songlog
     score =  ((data.room.metadata.upvotes -  data.room.metadata.downvotes + numListeners) / (2 * numListeners)) * 100
     realScore = ((data.room.metadata.upvotes -  data.room.metadata.downvotes + numActive) / (2 * numActive)) * 100;
-    console.log score + " " + realScore + " " + numListeners + " " + numActive
+    #console.log score + " " + realScore + " " + numListeners + " " + numActive
     logData = querystring.stringify {
       whichLine: queueLineID #mashup.fm lime
       songid: lastSong._id
