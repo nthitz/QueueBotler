@@ -6,7 +6,7 @@ getActiveCount = (activeTime) ->
 	timeAgo = now - activeTime
 	numActive = 0
 	for userid, time of latestUserActions
-		if time > activeTime
+		if time > timeAgo
 			numActive++
 	return numActive
 pruneUsers = () ->
