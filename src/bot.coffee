@@ -599,7 +599,6 @@ init = () ->
             PMManager.queuePMs ["If you are staying up on stage, you will be auto-removed from the queue once you start playing your song."], data.user[0].userid
         , false
     bot.on 'endsong', (data) ->
-        IdleUsers.setVotersActive data.room.metadata.votelog
         IdleUsers.pruneUsers
         logPlay data, IdleUsers.getActiveCount(10 * 60 * 1000), data.room.metadata.listeners
         
@@ -618,6 +617,6 @@ init = () ->
             userid = data.room.metadata.votelog[0][0]
             if userid.length is 24
                 IdleUsers.logUserAction userid
-    bot.on 'registered', (data) ->
-        IdleUsers.logUserAction data.user.userid
+    #bot.on 'registered', (data) ->
+    #    IdleUsers.logUserAction data.user.userid
 setTimeout init, process.env.STARTUPTIME

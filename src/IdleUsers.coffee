@@ -20,6 +20,9 @@ pruneUsers = () ->
 	for userid in idsToDelete
 		delete latestUserActions[userid]
 setVotersActive = (voters) ->
+	return
+	console.log latestUserActions
+	console.log voters
 	for vote in voters
 		logUserAction(vote[0])
 exports.logUserAction = logUserAction
