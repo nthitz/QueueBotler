@@ -264,6 +264,7 @@ addToQueue = (user) ->
       lineName: queueName
       linePIN: strPin
       Add: 'Add'
+      qbID: process.env.QBID
     }
     queueOptions = {
         host: host
