@@ -27,6 +27,7 @@ masterPinEnabled = typeof masterPin isnt 'undefined'
 snaggedList = []
 lastSong = null
 songLog = null
+modIDs = null
 checkForIdleUsers = (queue) ->
     doCheck = false
     if lastIdleUserCheck is null
@@ -523,11 +524,13 @@ logPlay = (data, numActive, numListeners) ->
         str = ''
         response.on 'data', (data) -> str += data
         response.on 'end', ->
+            console.log 'logPlay end';
+            console.log str
             if str.indexOf 'needsong' is 0
                 parts = str.split ':'
                 songid = parts[1]
-
-                logSongInList songid
+                if typeof songid isnt 'undefined'
+                    logSongInList songid
             else if str isnt '' 
                 console.log 'logSong response'
                 console.log str
@@ -568,7 +571,39 @@ logSong = (song) ->
     console.log "logSong " + song._id + " " + song.metadata.song 
     req.write(songData)
     req.end()
+logAction = (data, action)->
+    userid = data.user[0].userid
 
+    if modIDs is null
+        return
+    if modIDs.indexOf(userid) is -1
+        return
+    username = data.user[0].name
+    logData = querystring.stringify {
+        userid: userid
+        action: action
+        username: username
+        key: process.env.LOGKEY
+
+    }
+    queueOptions = {
+        host: songLogHost
+        path: songLogPath + 'logAction.php'
+        method: 'POST'
+        headers: 
+            'Content-Type': 'application/x-www-form-urlencoded'
+            'Content-Length': logData.length
+    }
+    cb = (response) ->
+        response.setEncoding('utf8');
+        str = ''
+        response.on 'data', (data) -> str += data
+        response.on 'end', ->
+            
+    console.log 'logAction ' + username + " " + action
+    req = http.request queueOptions, cb
+    req.write(logData)
+    req.end()
 init = () -> 
     if typeof process.env.AUTH is 'undefined'
         console.log 'setup bot environmnet vars first'
@@ -584,8 +619,10 @@ init = () ->
     profiles.init(bot)
     PMManager.setBot(bot)
     ChatManager.setBot bot
-    bot.on 'ready', (data) -> 
-        bot.roomRegister process.env.ROOMID
+    bot.on 'ready', (data) ->
+        bot.roomRegister process.env.ROOMID,(data) ->
+            modIDs = data.room.metadata.moderator_id
+
     bot.on 'speak', (data) ->
         IdleUsers.logUserAction data.userid
         lower  = data.text.toLowerCase().trim()
@@ -602,7 +639,7 @@ init = () ->
     bot.on 'endsong', (data) ->
         IdleUsers.pruneUsers
         logPlay data, IdleUsers.getActiveCount(10 * 60 * 1000), data.room.metadata.listeners
-        
+        modIDs = data.room.metadata.moderator_id
     bot.on 'newsong', (data) ->
         snaggedList.length = 0; #clears array of users who have snagged it
         userO = {userid: data.room.metadata.current_dj}
@@ -618,6 +655,8 @@ init = () ->
             userid = data.room.metadata.votelog[0][0]
             if userid.length is 24
                 IdleUsers.logUserAction userid
-    #bot.on 'registered', (data) ->
-    #    IdleUsers.logUserAction data.user.userid
+    bot.on 'registered', (data) ->
+        logAction(data,'enter')
+    bot.on 'deregistered', (data) -> 
+        logAction(data, 'exit')
 setTimeout init, process.env.STARTUPTIME
