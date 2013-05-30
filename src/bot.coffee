@@ -28,6 +28,8 @@ snaggedList = []
 lastSong = null
 songLog = null
 modIDs = null
+requestQueueTimeout = null
+warnedIdleUserAt = {}
 checkForIdleUsers = (queue) ->
     doCheck = false
     if lastIdleUserCheck is null
@@ -81,12 +83,30 @@ removeIdleUsers = (pins, queue) ->
     #if any idle users that we have pins for rm them
 
     idleTime = 120
+    warningTime = idleTime - 15
     idleUsers = []
+    warnUsers = []
+    now = new Date().getTime()
     for queuePerson in queue
         timeParts = queuePerson.time.split(' ')
         mins = parseInt(timeParts[0])
         if mins >= idleTime
             idleUsers.push queuePerson
+        else if mins >= warningTime
+            warnUsers.push queuePerson
+    for warnUser in warnUsers
+        pinO = null
+        for pin in pins
+            if pin.lineID is warnUser.lineID
+                pinO = pin
+                break
+        if pinO isnt null
+            diff = now - warnedIdleUserAt[pin.userid]
+            if (typeof warnedIdleUserAt[pin.userid] is 'undefined') or (diff > (60 * 1000 * 30))
+                msg = "Are you still there? Please PM me back 'check in' (without quotes) to stay active in the queue."
+                PMManager.queuePMs [msg], pin.userid
+                warnedIdleUserAt[pin.userid] = now
+
     for idleUser in idleUsers
         if validLineIDs.indexOf(idleUser.lineID) isnt -1
             if pins.length > 0
@@ -105,7 +125,12 @@ removeIdleUsers = (pins, queue) ->
     pins = null
     queue = null
 requestQueue = (callback) ->
+    clearTimeout(requestQueueTimeout)
+    requestQueueTimeout = setTimeout () ->
+        requestQueue(null)
+    , 60 * 1000 * 2
     randTime = new Date().getTime()
+    console.log 'request queue ' + randTime
     queueOptions = {
         host: host
         path: '/line.php?t=' + randTime
@@ -133,7 +158,8 @@ processQueueHTML = (html, callback) ->
         curQ.push(item)
     checkForIdleUsers(curQ)
     latestQueue = curQ
-    callback(curQ)
+    if callback isnt null
+        callback(curQ)
 getQueueMessages = (queue) ->
     msgs = []
     msgs.push 'Current Queue from http://sosimpull.com/mashupfm-line/'
@@ -571,39 +597,6 @@ logSong = (song) ->
     console.log "logSong " + song._id + " " + song.metadata.song 
     req.write(songData)
     req.end()
-logAction = (data, action)->
-    userid = data.user[0].userid
-
-    if modIDs is null
-        return
-    if modIDs.indexOf(userid) is -1
-        return
-    username = data.user[0].name
-    logData = querystring.stringify {
-        userid: userid
-        action: action
-        username: username
-        key: process.env.LOGKEY
-
-    }
-    queueOptions = {
-        host: songLogHost
-        path: songLogPath + 'logAction.php'
-        method: 'POST'
-        headers: 
-            'Content-Type': 'application/x-www-form-urlencoded'
-            'Content-Length': logData.length
-    }
-    cb = (response) ->
-        response.setEncoding('utf8');
-        str = ''
-        response.on 'data', (data) -> str += data
-        response.on 'end', ->
-            
-    console.log 'logAction ' + username + " " + action
-    req = http.request queueOptions, cb
-    req.write(logData)
-    req.end()
 init = () -> 
     if typeof process.env.AUTH is 'undefined'
         console.log 'setup bot environmnet vars first'
@@ -655,8 +648,5 @@ init = () ->
             userid = data.room.metadata.votelog[0][0]
             if userid.length is 24
                 IdleUsers.logUserAction userid
-    bot.on 'registered', (data) ->
-        logAction(data,'enter')
-    bot.on 'deregistered', (data) -> 
-        logAction(data, 'exit')
+    
 setTimeout init, process.env.STARTUPTIME
