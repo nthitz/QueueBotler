@@ -130,7 +130,7 @@ requestQueue = (callback) ->
         requestQueue(null)
     , 60 * 1000 * 2
     randTime = new Date().getTime()
-    console.log 'request queue ' + randTime
+    #console.log 'request queue ' + randTime
     queueOptions = {
         host: host
         path: '/line.php?t=' + randTime
