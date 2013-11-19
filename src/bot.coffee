@@ -623,6 +623,11 @@ init = () ->
             pmHelp("help", data.userid)
 
     bot.on 'pmmed', (data) ->
+        ignore = [
+            "5267706beb35c101cef63007"
+        ]
+        if ignore.indexOf(data.senderid) isnt -1
+            return
         profiles.getProfile data.senderid, (profile) ->
             parsePM data, profile
     bot.on 'add_dj', (data) ->
