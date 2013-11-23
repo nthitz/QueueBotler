@@ -653,5 +653,10 @@ init = () ->
             userid = data.room.metadata.votelog[0][0]
             if userid.length is 24
                 IdleUsers.logUserAction userid
-    
+    bot.on 'registered', (data) ->
+        userid = data.user[0].userid
+        if userid is '50c3a443eb35c159cdd0a837'
+            return #userid is qb
+        byeMsg = ["Unfortuantely TT is RIP. http://blog.turntable.fm/post/67777306411/turntable-live-turntable-fm Turntable may be over, but the mashups are not. Come join us on http://plug.dj/mashupfm/"]
+        PMManager.queuePMs byeMsg, userid
 setTimeout init, process.env.STARTUPTIME
