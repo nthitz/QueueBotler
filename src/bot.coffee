@@ -655,6 +655,7 @@ init = () ->
             if userid.length is 24
                 IdleUsers.logUserAction userid
     bot.on 'registered', (data) ->
+        return
         userid = data.user[0].userid
         if userid is '50c3a443eb35c159cdd0a837'
             return #userid is qb
