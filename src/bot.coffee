@@ -621,7 +621,8 @@ init = () ->
         lower  = data.text.toLowerCase().trim()
         if lower.match(/^\/?\+?q(ueue)?\+?$/)
             pmHelp("help", data.userid)
-
+        if lower.indexOf('dance') isnt -1
+            bot.vote 'up'
     bot.on 'pmmed', (data) ->
         ignore = [
             "5267706beb35c101cef63007"
