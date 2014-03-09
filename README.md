@@ -1,6 +1,8 @@
 QueueBotler
 ===========
 
+RIP Turntable.fm
+
 Turntable Mashup.FM Queue Bot
 
 Features:
